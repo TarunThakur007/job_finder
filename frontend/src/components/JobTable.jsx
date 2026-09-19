@@ -97,22 +97,19 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
                 </div>
               </div>
 
-              {/* Verification Score & Direct Apply CTA */}
-              <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                <div className="bg-[#18181c] border border-yellow-500/30 px-4 py-2.5 rounded-xl text-center min-w-[130px]">
-                  <div className="text-xs font-bold text-yellow-400">
-                    Trust Score
-                  </div>
-                  <div className="text-xl font-black text-yellow-400">
-                    {score} / 100
-                  </div>
+              {/* Subtle Trust Score & Direct Apply Primary CTA */}
+              <div className="flex items-center gap-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#18181c] border border-gray-800 text-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span className="text-gray-400 font-medium">Trust</span>
+                  <span className="font-bold text-white">{score}%</span>
                 </div>
 
                 <a
                   href={job.applyUrl || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
                 >
                   Apply Now <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
                 </a>
