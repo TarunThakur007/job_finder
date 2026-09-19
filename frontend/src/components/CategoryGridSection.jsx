@@ -104,27 +104,30 @@ export default function CategoryGridSection({ selectedCategory, onSelectCategory
                     if (onSelectCategory) onSelectCategory(cat.name);
                   }
                 }}
-                className={`group gold-glow-card cursor-pointer rounded-2xl p-6 bg-[#222228] text-center flex flex-col items-center justify-between space-y-4 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
+                className={`group gold-glow-card cursor-pointer rounded-2xl p-6 bg-[#222228] text-center flex flex-col items-center h-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                   isSelected ? 'border-yellow-400 ring-2 ring-yellow-400/30 bg-[#282830]' : 'border-gray-800'
                 }`}
               >
-                {/* Yellow Icon Circle Badge */}
-                <div className="w-14 h-14 rounded-full bg-yellow-400 text-gray-950 flex items-center justify-center shadow-lg shadow-yellow-500/20 group-hover:scale-105 transition-transform">
-                  <IconComponent className="w-7 h-7 stroke-[2.2]" />
-                </div>
+                {/* Top-Aligned Content: Icon, Title & Fixed-Height Description */}
+                <div className="flex flex-col items-center w-full">
+                  {/* Yellow Icon Circle Badge */}
+                  <div className="w-14 h-14 rounded-full bg-yellow-400 text-gray-950 flex items-center justify-center shadow-lg shadow-yellow-500/20 group-hover:scale-105 transition-transform mb-4">
+                    <IconComponent className="w-7 h-7 stroke-[2.2]" />
+                  </div>
 
-                {/* Category Title & Description */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors">
+                  {/* Category Title with Consistent Baseline */}
+                  <h3 className="text-lg font-bold text-white group-hover:text-yellow-400 transition-colors min-h-[28px] flex items-center justify-center">
                     {cat.name}
                   </h3>
-                  <p className="text-xs text-gray-400 line-clamp-2 px-2">
+
+                  {/* Description with Uniform 2-Line Height Container */}
+                  <p className="text-xs text-gray-400 line-clamp-2 px-2 mt-2 h-9 flex items-center justify-center text-center">
                     {cat.description}
                   </p>
                 </div>
 
-                {/* Job Count & Browse Affordance */}
-                <div className="pt-3 border-t border-gray-800/80 w-full flex items-center justify-between">
+                {/* Bottom-Pinned Footer: Job Count & Browse Affordance */}
+                <div className="mt-auto pt-4 border-t border-gray-800/80 w-full flex items-center justify-between">
                   <span className="text-xs font-extrabold text-yellow-400 tracking-wide">
                     {cat.count}
                   </span>
