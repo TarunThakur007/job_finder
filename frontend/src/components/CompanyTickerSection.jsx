@@ -95,9 +95,9 @@ export default function CompanyTickerSection() {
   return (
     <section className="bg-[#18181c] py-12 border-b border-gray-800/80 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 text-center mb-8">
-        <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
           Trusted By <span className="text-yellow-400">1000+</span> Top Tech Companies
-        </h3>
+        </h2>
       </div>
 
       {/* Ticker Container */}

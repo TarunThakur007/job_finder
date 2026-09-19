@@ -51,10 +51,10 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
                   <h3 className="text-lg font-black text-white group-hover:text-yellow-400 transition-colors">
                     {job.title}
                   </h3>
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-500/30">
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-500/30">
                     {job.jobType || job.employmentType || "Fulltime"}
                   </span>
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                     {job.vacanciesCount || job.openings || 3} Vacancies Open
                   </span>
                 </div>
@@ -77,7 +77,7 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
               {/* Verification Score & Direct Apply CTA */}
               <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                 <div className="bg-[#18181c] border border-yellow-500/30 px-4 py-2.5 rounded-xl text-center min-w-[130px]">
-                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-yellow-400">
+                  <div className="text-xs font-bold text-yellow-400">
                     Trust Score
                   </div>
                   <div className="text-xl font-black text-yellow-400">
@@ -99,18 +99,18 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
             {/* Evidence Badges */}
             <div className="pt-4 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+                <span className="text-xs font-bold text-gray-400">
                   Verified Signals:
                 </span>
                 {(job.evidence || ["Employer domain verified", "Official career source match", "Active application URL"]).map((ev, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-300 bg-[#18181c] border border-gray-800 px-2.5 py-1 rounded-lg">
+                  <span key={i} className="inline-flex items-center gap-1 text-xs font-medium text-gray-300 bg-[#18181c] border border-gray-800 px-2.5 py-1 rounded-lg">
                     <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400" />
                     {ev}
                   </span>
                 ))}
               </div>
 
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-mono">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
                 <Clock className="w-3.5 h-3.5 text-yellow-400" />
                 <span>Verified {job.lastSeen || 'recently'}</span>
               </div>

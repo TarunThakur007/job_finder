@@ -39,7 +39,7 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
           >
             {/* Job Title Field */}
             <div className="flex-1 w-full bg-[#18181c] rounded-xl px-4 py-2 min-h-[56px] sm:h-16 flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
-              <label htmlFor="hero-job-title" className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+              <label htmlFor="hero-job-title" className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
                 Job Title
               </label>
               <input
@@ -54,7 +54,7 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
 
             {/* Job Type Field */}
             <div className="w-full sm:w-44 bg-[#18181c] rounded-xl px-4 py-2 min-h-[56px] sm:h-16 flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
-              <label htmlFor="hero-job-type" className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+              <label htmlFor="hero-job-type" className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
                 Job Type
               </label>
               <select
@@ -146,10 +146,10 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
             <div className="space-y-0.5">
               <p className="font-extrabold text-white text-sm">10K+ got job</p>
               <div className="flex -space-x-2 overflow-hidden">
-                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-yellow-400 text-gray-950 font-bold text-[10px] flex items-center justify-center">JD</div>
-                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-blue-500 text-white font-bold text-[10px] flex items-center justify-center">AS</div>
-                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-purple-500 text-white font-bold text-[10px] flex items-center justify-center">MK</div>
-                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-yellow-500 text-gray-950 font-extrabold text-[9px] flex items-center justify-center">+9K</div>
+                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-yellow-400 text-gray-950 font-bold text-xs flex items-center justify-center">JD</div>
+                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-blue-500 text-white font-bold text-xs flex items-center justify-center">AS</div>
+                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-purple-500 text-white font-bold text-xs flex items-center justify-center">MK</div>
+                <div className="inline-block h-6 w-6 rounded-full ring-2 ring-[#222228] bg-yellow-500 text-gray-950 font-extrabold text-xs flex items-center justify-center">+9K</div>
               </div>
             </div>
           </div>

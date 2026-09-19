@@ -445,26 +445,28 @@ export default function App() {
 
           {/* 4. VERIFIED LIVE JOBS LISTINGS */}
           <section id="job-listings-section" className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-12 space-y-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-6">
-              <div>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-800 pb-6">
+              <div className="space-y-1">
                 <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
                   <ShieldCheck className="w-7 h-7 text-yellow-400" />
                   Verified <span className="text-yellow-400">Live Job</span> Listings
                 </h2>
-                <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                <p className="text-gray-400 text-xs sm:text-sm">
                   Showing {filteredJobs.length} AI-verified active job openings with transparent trust scores
                 </p>
               </div>
 
-              {/* Search Bar Input */}
-              <div className="relative w-full sm:w-72">
-                <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              {/* Filter Search Input directly associated with listing */}
+              <div className="relative w-full sm:w-80 md:w-96">
+                <label htmlFor="job-filter-input" className="sr-only">Filter listings</label>
+                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
+                  id="job-filter-input"
                   type="text"
-                  placeholder="Filter listings..."
+                  placeholder="Filter by title, company, skill, or location..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[#222228] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#222228] border border-gray-800 rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -490,7 +492,7 @@ export default function App() {
       {/* FOOTER */}
       <footer className="bg-[#141417] border-t border-gray-800/80 py-8 px-4 text-center text-xs text-gray-500 space-y-2">
         <p className="font-bold text-gray-400">JobProof &copy; 2026. All rights reserved.</p>
-        <p className="text-[11px] text-gray-600">Powered by Spring Boot REST Backend API & React Vite Frontend.</p>
+        <p className="text-xs text-gray-500">Powered by Spring Boot REST Backend API & React Vite Frontend.</p>
       </footer>
 
     </div>

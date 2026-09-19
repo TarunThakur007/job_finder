@@ -94,13 +94,22 @@ export default function CategoryGridSection({ selectedCategory, onSelectCategory
             return (
               <div
                 key={cat.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Browse ${cat.name} jobs: ${cat.count}`}
                 onClick={() => onSelectCategory && onSelectCategory(cat.name)}
-                className={`gold-glow-card cursor-pointer rounded-2xl p-6 bg-[#222228] text-center flex flex-col items-center justify-between space-y-4 transition-all duration-300 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (onSelectCategory) onSelectCategory(cat.name);
+                  }
+                }}
+                className={`group gold-glow-card cursor-pointer rounded-2xl p-6 bg-[#222228] text-center flex flex-col items-center justify-between space-y-4 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
                   isSelected ? 'border-yellow-400 ring-2 ring-yellow-400/30 bg-[#282830]' : 'border-gray-800'
                 }`}
               >
                 {/* Yellow Icon Circle Badge */}
-                <div className="w-14 h-14 rounded-full bg-yellow-400 text-gray-950 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+                <div className="w-14 h-14 rounded-full bg-yellow-400 text-gray-950 flex items-center justify-center shadow-lg shadow-yellow-500/20 group-hover:scale-105 transition-transform">
                   <IconComponent className="w-7 h-7 stroke-[2.2]" />
                 </div>
 
@@ -114,10 +123,13 @@ export default function CategoryGridSection({ selectedCategory, onSelectCategory
                   </p>
                 </div>
 
-                {/* Job Count Highlighted in Yellow */}
-                <div className="pt-2 border-t border-gray-800/80 w-full">
+                {/* Job Count & Browse Affordance */}
+                <div className="pt-3 border-t border-gray-800/80 w-full flex items-center justify-between">
                   <span className="text-xs font-extrabold text-yellow-400 tracking-wide">
                     {cat.count}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-gray-400 group-hover:text-yellow-400 transition-colors">
+                    Browse Jobs <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </span>
                 </div>
               </div>

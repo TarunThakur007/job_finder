@@ -29,10 +29,10 @@ export default function Header({
         </div>
 
         {/* Navigation Tab Links */}
-        <nav className="hidden md:flex items-center gap-1 bg-[#222228] p-1.5 rounded-full border border-gray-800">
+        <nav className="hidden md:flex items-center gap-1.5 bg-[#222228] p-1.5 rounded-xl border border-gray-800">
           <button
             onClick={() => setActiveTab('dashboard-overview')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
               activeTab === 'dashboard-overview'
                 ? 'bg-yellow-400 text-gray-950 shadow-sm'
                 : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
@@ -42,7 +42,7 @@ export default function Header({
           </button>
           <button
             onClick={() => setActiveTab('resume-analyzer')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
               activeTab === 'resume-analyzer'
                 ? 'bg-yellow-400 text-gray-950 shadow-sm'
                 : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
@@ -52,7 +52,7 @@ export default function Header({
           </button>
           <button
             onClick={() => setActiveTab('admin-panel')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
               activeTab === 'admin-panel'
                 ? 'bg-yellow-400 text-gray-950 shadow-sm'
                 : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
@@ -65,7 +65,7 @@ export default function Header({
         {/* Right Section: Backend Health, Login & Source Code Button */}
         <div className="flex items-center gap-3">
           {/* Backend Health Badge */}
-          <div className="hidden lg:flex items-center gap-2 text-[11px] bg-[#222228] border border-gray-800 rounded-full px-3.5 py-1.5 text-gray-400">
+          <div className="hidden lg:flex items-center gap-2 text-xs bg-[#222228] border border-gray-800 rounded-xl px-3.5 py-1.5 text-gray-400">
             <span className={`w-2 h-2 rounded-full ${healthStatus?.data ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`} />
             <span className="font-semibold text-gray-300">
               Backend: {healthStatus?.loading ? 'Checking...' : healthStatus?.data ? 'Connected' : 'Standalone'}
