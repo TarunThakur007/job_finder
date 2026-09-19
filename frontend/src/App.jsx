@@ -422,6 +422,7 @@ export default function App() {
             liveJobs={jobsToDisplay} 
             currentUser={currentUser} 
             onPostJobClick={() => setShowPostJobModal(true)}
+            onLoginAsAdmin={(adminUser) => setCurrentUser(adminUser)}
           />
         </div>
       ) : (

@@ -28,6 +28,7 @@ public class JobDiscoveryAgent {
     private final AshbyConnector ashbyConnector;
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
+    private final com.jobproof.verification.VerificationService verificationService;
 
     public JobDiscoveryAgent(
             TargetCompanyConfig companyConfig,
@@ -35,13 +36,15 @@ public class JobDiscoveryAgent {
             LeverConnector leverConnector,
             AshbyConnector ashbyConnector,
             JobRepository jobRepository,
-            CompanyRepository companyRepository) {
+            CompanyRepository companyRepository,
+            com.jobproof.verification.VerificationService verificationService) {
         this.companyConfig = companyConfig;
         this.greenhouseConnector = greenhouseConnector;
         this.leverConnector = leverConnector;
         this.ashbyConnector = ashbyConnector;
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
+        this.verificationService = verificationService;
     }
 
     /**
@@ -91,12 +94,17 @@ public class JobDiscoveryAgent {
                     job.setEmploymentType(draft.getEmploymentType() != null ? draft.getEmploymentType() : "Full-time");
                     job.setDescription("Official opening discovered from " + company.getName() + " careers portal. Direct application endpoint verified.");
                     job.setSummary("JobProof AI Agent: Discovered via official " + target.atsType() + " feed. Apply URL verified and staged for Admin approval.");
-                    job.setTrustScore(draft.getTrustScore() != null ? draft.getTrustScore() : 95);
-                    job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW); // Staged for Admin!
+                    job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW); // Staged for Admin review
                     job.setPostedDate(LocalDateTime.now());
                     job.setLastVerified(LocalDateTime.now());
 
+                    job = jobRepository.save(job);
+
+                    // Compute dynamic trust score based on authentic company & real listing verification
+                    verificationService.evaluateJobTrustScore(job);
+                    job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW);
                     jobRepository.save(job);
+
                     stagedCount++;
                 }
             } catch (Exception e) {

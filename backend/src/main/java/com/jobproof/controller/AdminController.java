@@ -4,6 +4,7 @@ import com.jobproof.dto.JobDTO;
 import com.jobproof.entity.Job;
 import com.jobproof.ingestion.JobDiscoveryAgent;
 import com.jobproof.mapper.JobMapper;
+import com.jobproof.repository.CompanyRepository;
 import com.jobproof.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,13 +20,21 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final JobRepository jobRepository;
+    private final CompanyRepository companyRepository;
     private final JobMapper jobMapper;
     private final JobDiscoveryAgent jobDiscoveryAgent;
+    private final com.jobproof.verification.VerificationService verificationService;
 
-    public AdminController(JobRepository jobRepository, JobMapper jobMapper, JobDiscoveryAgent jobDiscoveryAgent) {
+    public AdminController(JobRepository jobRepository,
+                           CompanyRepository companyRepository,
+                           JobMapper jobMapper,
+                           JobDiscoveryAgent jobDiscoveryAgent,
+                           com.jobproof.verification.VerificationService verificationService) {
         this.jobRepository = jobRepository;
+        this.companyRepository = companyRepository;
         this.jobMapper = jobMapper;
         this.jobDiscoveryAgent = jobDiscoveryAgent;
+        this.verificationService = verificationService;
     }
 
     @GetMapping("/stats")
@@ -63,11 +72,47 @@ public class AdminController {
     @PutMapping("/vacancies/{id}/approve")
     public ResponseEntity<JobDTO> approveVacancy(@PathVariable Long id) {
         Job job = jobRepository.findById(id).orElseThrow();
+        // Compute authentic dynamic trust score via verification service
+        verificationService.evaluateJobTrustScore(job);
         job.setVerificationStatus(Job.VerificationStatus.HIGHLY_TRUSTED);
-        job.setTrustScore(98);
         job.setLastVerified(LocalDateTime.now());
         jobRepository.save(job);
         return ResponseEntity.ok(jobMapper.toJobDTO(job));
+    }
+
+    /**
+     * Purge legacy dummy mock companies and their vacancies from database
+     */
+    @PostMapping("/clean-dummy-data")
+    public ResponseEntity<Map<String, Object>> cleanDummyData() {
+        List<String> dummyNames = List.of("xyz technologies", "nexus innovations", "datapulse systems");
+        int deletedJobsCount = 0;
+        int deletedCompaniesCount = 0;
+
+        List<Job> allJobs = jobRepository.findAll();
+        for (Job job : allJobs) {
+            String cName = job.getCompany() != null ? job.getCompany().getName().toLowerCase() : "";
+            if (dummyNames.contains(cName) || (job.getSource() != null && job.getSource().contains("Adzuna"))) {
+                jobRepository.delete(job);
+                deletedJobsCount++;
+            }
+        }
+
+        List<com.jobproof.entity.Company> allCompanies = companyRepository.findAll();
+        for (com.jobproof.entity.Company comp : allCompanies) {
+            if (dummyNames.contains(comp.getName().toLowerCase())) {
+                try {
+                    companyRepository.delete(comp);
+                    deletedCompaniesCount++;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "message", "Dummy data purged successfully. Only authentic real company listings remain in database.",
+            "deletedJobs", deletedJobsCount,
+            "deletedCompanies", deletedCompaniesCount
+        ));
     }
 
     /**
