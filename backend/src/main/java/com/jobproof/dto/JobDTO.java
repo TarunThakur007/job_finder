@@ -28,6 +28,7 @@ public class JobDTO {
     private LocalDateTime lastVerified;
     private List<String> skills;
     private List<String> evidence;
+    private Integer vacanciesCount = 3;
 
     public JobDTO() {}
 

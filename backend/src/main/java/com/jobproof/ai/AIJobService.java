@@ -1,8 +1,8 @@
 package com.jobproof.ai;
 
-import com.jobproof.entity.Company;
 import com.jobproof.entity.Job;
 import com.jobproof.entity.JobSkill;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -10,14 +10,22 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class AIJobService {
+
+    private final GeminiClientService geminiClientService;
 
     public void analyzeAndEnrichJob(Job job) {
         if (job == null) return;
 
-        // 1. Generate Executive AI Summary if missing
+        // 1. Generate Executive AI Summary using Google Gemini API if missing
         if (job.getSummary() == null || job.getSummary().isBlank()) {
-            job.setSummary(generateSummary(job));
+            String companyName = job.getCompany() != null ? job.getCompany().getName() : "the employer";
+            String prompt = String.format(
+                "Write a 2-sentence professional executive summary for the job posting '%s' at '%s'. Focus on engineering impact and team collaboration.",
+                job.getTitle(), companyName
+            );
+            job.setSummary(geminiClientService.generateContent(prompt));
         }
 
         // 2. Extract & Categorize Role
@@ -37,21 +45,13 @@ public class AIJobService {
 
         // 4. Extract Selection Process Flow
         if (job.getSelectionProcess() == null || job.getSelectionProcess().isBlank()) {
-            job.setSelectionProcess("Resume Screening -> Online Assessment -> Technical Interview -> HR Interview");
+            job.setSelectionProcess("Resume Screening -> Online Assessment -> Technical Interview -> HR Offer");
         }
 
         // 5. Check Salary Transparency Flag
         if (job.getSalaryMin() == null && job.getSalaryMax() == null) {
             job.setIsSalaryEstimated(true);
         }
-    }
-
-    private String generateSummary(Job job) {
-        String companyName = job.getCompany() != null ? job.getCompany().getName() : "the employer";
-        return String.format(
-            "This %s position at %s focuses on engineering backend infrastructure, system performance, and scalable application architecture. The ideal candidate will collaborate with engineering teams to deliver robust software solutions.",
-            job.getTitle(), companyName
-        );
     }
 
     private String categorizeRole(String title) {

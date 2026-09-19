@@ -1,41 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import StatCards from './components/StatCards';
-import UserProfileSkillsCard from './components/UserProfileSkillsCard';
-import StatisticsChart from './components/StatisticsChart';
-import MonthlyChart from './components/MonthlyChart';
-import RecommendedJobs from './components/RecommendedJobs';
+import HeroSection from './components/HeroSection';
+import CompanyTickerSection from './components/CompanyTickerSection';
+import CategoryGridSection from './components/CategoryGridSection';
 import JobTable from './components/JobTable';
 import JobDetailsModal from './components/JobDetailsModal';
-import VerificationTargetGauge from './components/VerificationTargetGauge';
+import ResumeAnalyzerSection from './components/ResumeAnalyzerSection';
+import LoginView from './components/LoginView';
+import AdminControlSection from './components/AdminControlSection';
 import { 
-  Sparkles, 
-  PlusCircle, 
-  Send, 
-  MessageSquare, 
-  Users, 
   ShieldCheck, 
-  Building2, 
   CheckCircle2, 
-  Briefcase, 
-  Clock, 
-  TrendingUp, 
   Search,
-  ArrowRight,
-  Bookmark,
-  Bell
+  X,
+  Code2
 } from 'lucide-react';
 
 export default function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard-overview');
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jobproof_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState(() => {
+    return currentUser?.role === 'ROLE_ADMIN' ? 'admin-panel' : 'dashboard-overview';
+  });
   const [searchTerm, setSearchTerm] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [healthStatus, setHealthStatus] = useState({ loading: true, data: null, error: null });
   const [liveJobs, setLiveJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
-  const [savedJobs, setSavedJobs] = useState([]);
+  const [showPostJobModal, setShowPostJobModal] = useState(false);
 
   // Job Post Form State
   const [postingJob, setPostingJob] = useState(false);
@@ -46,27 +45,20 @@ export default function App() {
     companyWebsite: '',
     role: 'Backend Development',
     location: '',
-    employmentType: 'Full-time',
+    employmentType: 'Fulltime',
     experienceLevel: '1-3 years',
     salaryMin: '1200000',
     salaryMax: '1800000',
     applyUrl: '',
     description: '',
-    skills: 'Java, Spring Boot, React'
+    skills: 'Java, Spring Boot, React',
+    vacanciesCount: 5
   });
 
-  // AI Assistant Chat State
-  const [chatMessages, setChatMessages] = useState([
-    {
-      sender: 'ai',
-      text: 'Hello! I am your JobProof AI Assistant. Ask me anything about job listings, employer verification scores, salary benchmarks, or interview preparation.'
-    }
-  ]);
-  const [chatInput, setChatInput] = useState('');
-
   // Fetch backend health status & live jobs
-  const fetchJobs = () => {
-    fetch('/api/jobs')
+  const fetchJobs = (query = '') => {
+    const url = query ? `/api/jobs/search?q=${encodeURIComponent(query)}` : '/api/jobs';
+    fetch(url)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -90,65 +82,132 @@ export default function App() {
 
   const sampleJobs = [
     {
-      id: 1,
-      title: 'Senior Java Backend Engineer',
-      company: 'XYZ Technologies',
-      location: 'Bangalore, India (Hybrid)',
-      jobType: 'Full-time',
-      salary: '₹14,00,000 - ₹22,00,000 / yr',
+      id: 101,
+      title: 'Senior Software Engineer',
+      company: 'Google',
+      location: 'New York, USA',
+      jobType: 'Fulltime',
+      salary: '$140,000 - $190,000 / yr',
+      score: 98,
+      evidence: [
+        'Official Google career domain verified',
+        'Direct ATS application endpoint match',
+        'Zero spam signals detected'
+      ],
+      lastSeen: '1 day ago',
+      applyUrl: 'https://careers.google.com/jobs/101'
+    },
+    {
+      id: 102,
+      title: 'Lead React Developer',
+      company: 'Figma',
+      location: 'San Francisco, CA (Remote)',
+      jobType: 'Fulltime',
+      salary: '$150,000 - $210,000 / yr',
       score: 96,
       evidence: [
         'Employer domain verified',
-        'Original source found',
-        'Active application URL',
-        'Fresh listing'
+        'Direct HR ATS link',
+        'Fresh listing within 24h'
       ],
-      lastSeen: '14 minutes ago',
-      applyUrl: 'https://xyztech.com/careers/job/104'
+      lastSeen: '2 hours ago',
+      applyUrl: 'https://figma.com/careers/apply/202'
     },
     {
-      id: 2,
-      title: 'Full Stack React & Spring Boot Developer',
-      company: 'Nexus Innovations',
-      location: 'Remote, India',
-      jobType: 'Full-time',
-      salary: '₹18,00,000 - ₹24,00,000 / yr',
-      score: 98,
+      id: 103,
+      title: 'Senior Java Backend Engineer',
+      company: 'Spotify',
+      location: 'Stockholm / Remote',
+      jobType: 'Fulltime',
+      salary: '$130,000 - $175,000 / yr',
+      score: 97,
       evidence: [
         'Corporate portal match',
-        'Direct HR ATS link',
-        'Zero duplicate reports',
-        'Verified domain'
+        'Real-time response HTTP 200',
+        'Verified corporate domain'
       ],
-      lastSeen: '25 minutes ago',
-      applyUrl: 'https://nexusinnovations.com/careers/apply/302'
+      lastSeen: '14 minutes ago',
+      applyUrl: 'https://lifeatspotify.com/jobs/303'
     },
     {
-      id: 3,
-      title: 'AI & Data Pipeline Engineer',
-      company: 'DataPulse Systems',
-      location: 'Hyderabad, India',
-      jobType: 'Full-time',
-      salary: '₹8,00,000 - ₹12,00,000 / yr',
+      id: 104,
+      title: 'Full Stack Engineer',
+      company: 'Slack',
+      location: 'London, UK',
+      jobType: 'Fulltime',
+      salary: '£85,000 - £120,000 / yr',
       score: 94,
       evidence: [
-        'Official career page',
-        'Valid ATS link',
-        'Real-time status check passed'
+        'Official career page link',
+        'Active ATS application URL'
       ],
-      lastSeen: '1 hour ago',
-      applyUrl: 'https://datapulse.ai/careers/openings/771'
+      lastSeen: '4 hours ago',
+      applyUrl: 'https://slack.com/careers/404'
+    },
+    {
+      id: 105,
+      title: 'Data Science & Machine Learning Lead',
+      company: 'Netflix',
+      location: 'Los Gatos, CA',
+      jobType: 'Fulltime',
+      salary: '$180,000 - $260,000 / yr',
+      score: 99,
+      evidence: [
+        'High trust AI algorithm score',
+        'Verified corporate domain'
+      ],
+      lastSeen: '30 minutes ago',
+      applyUrl: 'https://jobs.netflix.com/jobs/505'
     }
   ];
 
   const jobsToDisplay = liveJobs.length > 0 ? liveJobs : sampleJobs;
 
-  const handleToggleSaveJob = (job) => {
-    if (savedJobs.some((j) => j.id === job.id)) {
-      setSavedJobs(savedJobs.filter((j) => j.id !== job.id));
+  // Filter jobs based on search term & category selection
+  const filteredJobs = jobsToDisplay.filter((job) => {
+    const compName = typeof job.company === 'object' ? job.company.name : job.company;
+    const matchesSearch = !searchTerm || 
+      (job.title && job.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (compName && compName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (job.skills && Array.isArray(job.skills) && job.skills.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())));
+
+    const matchesCategory = !selectedCategory || 
+      (job.role && job.role.toLowerCase().includes(selectedCategory.toLowerCase())) ||
+      (job.title && job.title.toLowerCase().includes(selectedCategory.toLowerCase()));
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleLoginSuccess = (userPayload) => {
+    setCurrentUser(userPayload);
+    if (userPayload?.role === 'ROLE_ADMIN') {
+      setActiveTab('admin-panel');
     } else {
-      setSavedJobs([...savedJobs, job]);
+      setActiveTab('dashboard-overview');
     }
+    try {
+      localStorage.setItem('jobproof_user', JSON.stringify(userPayload));
+    } catch (e) {}
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('jobproof_user');
+    } catch (e) {}
+  };
+
+  const handleHeroSearch = (queryTitle) => {
+    setSearchTerm(queryTitle);
+    fetchJobs(queryTitle);
+
+    // Smooth scroll down to verified jobs listings
+    setTimeout(() => {
+      const section = document.getElementById('job-listings-section');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   const handlePostJobSubmit = (e) => {
@@ -159,22 +218,22 @@ export default function App() {
     const payload = {
       title: newJobForm.title || 'Senior Software Engineer',
       company: {
-        name: newJobForm.companyName || 'Apex Digital',
-        website: newJobForm.companyWebsite || 'https://apexdigital.com',
-        careerPage: (newJobForm.companyWebsite || 'https://apexdigital.com') + '/careers',
+        name: newJobForm.companyName || 'Google',
+        website: newJobForm.companyWebsite || 'https://google.com',
+        careerPage: (newJobForm.companyWebsite || 'https://google.com') + '/careers',
         industry: 'Software & Technology'
       },
       role: newJobForm.role,
       experienceLevel: newJobForm.experienceLevel,
-      location: newJobForm.location || 'Bangalore, India',
+      location: newJobForm.location || 'New York, USA',
       employmentType: newJobForm.employmentType,
       salaryMin: parseFloat(newJobForm.salaryMin) || 1200000,
       salaryMax: parseFloat(newJobForm.salaryMax) || 1800000,
-      salaryCurrency: 'INR',
+      salaryCurrency: 'USD',
       isSalaryEstimated: false,
-      description: newJobForm.description || 'Looking for an experienced software developer to build high performance applications.',
-      applyUrl: newJobForm.applyUrl || 'https://apexdigital.com/careers/apply',
-      source: 'JobProof Employer Direct',
+      description: newJobForm.description || 'Looking for a senior engineer to build scale systems.',
+      applyUrl: newJobForm.applyUrl || 'https://google.com/careers',
+      source: 'JobProof Direct Employer',
       skills: newJobForm.skills.split(',').map((s) => s.trim())
     };
 
@@ -187,37 +246,22 @@ export default function App() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data) => {
+      .then(() => {
         setPostingJob(false);
         setPostSuccess('Job vacancy posted & verified successfully on backend!');
-        fetchJobs(); // refresh live list
-        setNewJobForm({
-          title: '',
-          companyName: '',
-          companyWebsite: '',
-          role: 'Backend Development',
-          location: '',
-          employmentType: 'Full-time',
-          experienceLevel: '1-3 years',
-          salaryMin: '1200000',
-          salaryMax: '1800000',
-          applyUrl: '',
-          description: '',
-          skills: 'Java, Spring Boot, React'
-        });
+        fetchJobs();
       })
-      .catch((err) => {
+      .catch(() => {
         setPostingJob(false);
-        // Fallback for UI demonstration if backend fails
         const createdJob = {
           id: Date.now(),
           title: payload.title,
           company: payload.company.name,
           location: payload.location,
           jobType: payload.employmentType,
-          salary: `₹${(payload.salaryMin / 100000).toFixed(1)}L - ₹${(payload.salaryMax / 100000).toFixed(1)}L / yr`,
-          score: 95,
-          evidence: ['Employer direct submission', 'Domain verified', 'ATS link verified'],
+          salary: `$${(payload.salaryMin / 1000).toFixed(0)}k - $${(payload.salaryMax / 1000).toFixed(0)}k / yr`,
+          score: 96,
+          evidence: ['Employer direct submission', 'Domain verified'],
           lastSeen: 'Just now',
           applyUrl: payload.applyUrl
         };
@@ -226,556 +270,229 @@ export default function App() {
       });
   };
 
-  const handleSendChatMessage = () => {
-    if (!chatInput.trim()) return;
-    const userMsg = { sender: 'user', text: chatInput.trim() };
-    setChatMessages((prev) => [...prev, userMsg]);
-    const currentInput = chatInput.trim().toLowerCase();
-    setChatInput('');
-
-    setTimeout(() => {
-      let responseText = 'JobProof AI has verified this query against corporate registrar logs and active listings database.';
-      if (currentInput.includes('java') || currentInput.includes('spring')) {
-        responseText = 'We have 2 high-trust verified Java & Spring Boot openings with trust scores > 95%. XYZ Technologies and Nexus Innovations are currently recruiting!';
-      } else if (currentInput.includes('salary') || currentInput.includes('pay')) {
-        responseText = 'Verified Java Backend salaries range from ₹14,00,000 to ₹24,00,000 per year with 100% employer disclosure.';
-      } else if (currentInput.includes('verify') || currentInput.includes('trust')) {
-        responseText = 'Our multi-point verification engine checks domain WHOIS records, direct ATS portal status, career site presence, and duplicate listing signals.';
-      }
-      setChatMessages((prev) => [...prev, { sender: 'ai', text: responseText }]);
-    }, 600);
-  };
+  // Authentication Gate: Require user registration / login to access full site
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-[#18181c] flex items-center justify-center p-4">
+        <LoginView onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
   return (
-    <div className={`${isDarkMode ? 'dark' : ''} min-h-screen bg-gradient-to-br from-purple-900/30 via-fuchsia-900/20 to-slate-900 p-2 sm:p-4 md:p-6 font-sans text-slate-800 dark:text-slate-100 transition-colors`}>
-      {/* Outer Floating Dashboard Shell */}
-      <div className="bg-[#F0F3F8] dark:bg-slate-950 rounded-[28px] overflow-hidden border border-slate-200/60 dark:border-slate-800 shadow-2xl min-h-[92vh] flex flex-col relative transition-colors">
-        
-        {/* Sidebar Navigation */}
-        <Sidebar 
-          sidebarOpen={sidebarOpen} 
-          setSidebarOpen={setSidebarOpen} 
-          activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
-        />
+    <div className="min-h-screen bg-[#18181c] text-white font-sans selection:bg-yellow-400 selection:text-gray-950">
+      
+      {/* Header Bar */}
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        healthStatus={healthStatus}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onLoginClick={() => {}}
+        onPostJobClick={() => setShowPostJobModal(true)}
+      />
 
-        {/* Sidebar Overlay for Mobile */}
-        {sidebarOpen && (
-          <div 
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-xs lg:hidden"
-          ></div>
-        )}
+      {/* Post Job / Source Code Modal */}
+      {showPostJobModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-[#222228] border border-yellow-500/40 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Code2 className="w-6 h-6 text-yellow-400" />
+                  Post & Verify Job Listing
+                </h2>
+                <p className="text-xs text-gray-400 mt-1">
+                  Add custom job vacancy directly into backend Spring Boot API.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPostJobModal(false)}
+                className="text-gray-400 hover:text-white p-2"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
-          {/* Top Header */}
-          <Header 
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-            healthStatus={healthStatus}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            isDarkMode={isDarkMode}
-            setIsDarkMode={setIsDarkMode}
-          />
-
-          {/* Main Dashboard Workspace */}
-          <main className="p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1600px] w-full mx-auto flex-1">
-            
-            {/* OVERVIEW TAB */}
-            {(activeTab === 'dashboard-overview' || activeTab === '') && (
-              <>
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
-                  <div className="xl:col-span-2 flex flex-col justify-center">
-                    <StatCards />
-                  </div>
-                  <div className="xl:col-span-1">
-                    <UserProfileSkillsCard />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-                  <div className="lg:col-span-1">
-                    <StatisticsChart />
-                  </div>
-                  <div className="lg:col-span-1">
-                    <MonthlyChart />
-                  </div>
-                </div>
-
-                <RecommendedJobs searchTerm={searchTerm} />
-
-                <div className="pt-2">
-                  <JobTable 
-                    jobs={jobsToDisplay} 
-                    searchTerm={searchTerm} 
-                    onSelectJob={(job) => setSelectedJob(job)}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* ANALYTICS TAB */}
-            {activeTab === 'dashboard-analytics' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Verification Analytics & Insights</h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Deep-dive metrics into employer trust scores, listing freshness, and verified applications.</p>
-                  </div>
-                  <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-                    Real-time Telemetry
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-1">
-                    <VerificationTargetGauge percentage={88.4} />
-                  </div>
-                  <div className="lg:col-span-2">
-                    <StatisticsChart />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <MonthlyChart />
-                  <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-4">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Verification Signal Distribution</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>Domain & WHOIS Matches</span>
-                          <span className="text-emerald-600 dark:text-emerald-400">98.2%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: '98.2%' }}></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>Active Career Portal ATS URL</span>
-                          <span className="text-indigo-600 dark:text-indigo-400">94.5%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                          <div className="bg-indigo-500 h-full rounded-full" style={{ width: '94.5%' }}></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>Real-time Response HTTP 200</span>
-                          <span className="text-blue-600 dark:text-blue-400">91.0%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                          <div className="bg-blue-500 h-full rounded-full" style={{ width: '91.0%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {postSuccess && (
+              <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+                {postSuccess}
               </div>
             )}
 
-            {/* JOB POST TAB */}
-            {activeTab === 'job-post' && (
-              <div className="max-w-3xl mx-auto bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <PlusCircle className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                      Post & Verify New Job Listing
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Directly add a verified job vacancy to the backend API database.
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                    API Connected
-                  </span>
-                </div>
-
-                {postSuccess && (
-                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center gap-2">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                    <span>{postSuccess}</span>
-                  </div>
-                )}
-
-                <form onSubmit={handlePostJobSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Job Title *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={newJobForm.title}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, title: e.target.value })}
-                        placeholder="e.g. Senior Java Microservices Developer" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Company Name *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={newJobForm.companyName}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, companyName: e.target.value })}
-                        placeholder="e.g. Apex Digital Systems" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Company Website</label>
-                      <input 
-                        type="url" 
-                        value={newJobForm.companyWebsite}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, companyWebsite: e.target.value })}
-                        placeholder="https://apexdigital.com" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Location *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={newJobForm.location}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, location: e.target.value })}
-                        placeholder="e.g. Bangalore, India (Hybrid)" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Employment Type</label>
-                      <select 
-                        value={newJobForm.employmentType}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, employmentType: e.target.value })}
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      >
-                        <option value="Full-time">Full-time</option>
-                        <option value="Part-time">Part-time</option>
-                        <option value="Contract">Contract</option>
-                        <option value="Remote">Remote</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Salary Min (INR / year)</label>
-                      <input 
-                        type="number" 
-                        value={newJobForm.salaryMin}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, salaryMin: e.target.value })}
-                        placeholder="1400000" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Salary Max (INR / year)</label>
-                      <input 
-                        type="number" 
-                        value={newJobForm.salaryMax}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, salaryMax: e.target.value })}
-                        placeholder="2200000" 
-                        className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Direct Application URL *</label>
-                    <input 
-                      type="url" 
-                      required
-                      value={newJobForm.applyUrl}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, applyUrl: e.target.value })}
-                      placeholder="https://apexdigital.com/careers/apply/101" 
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Job Description</label>
-                    <textarea 
-                      rows={3}
-                      value={newJobForm.description}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, description: e.target.value })}
-                      placeholder="Enter full job responsibilities and skill requirements..." 
-                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
-                    ></textarea>
-                  </div>
-
-                  <button 
-                    type="submit" 
-                    disabled={postingJob}
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center justify-center gap-2"
-                  >
-                    {postingJob ? 'Evaluating Trust Score & Posting...' : 'Post & Evaluate Verification Trust Score'}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* APPLIED TAB */}
-            {activeTab === 'applied' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <Bookmark className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                      Bookmarked & Applied Jobs ({savedJobs.length})
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Track and manage your saved verified job vacancies.</p>
-                  </div>
-                </div>
-
-                {savedJobs.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 p-12 text-center rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
-                    <ShieldCheck className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
-                    <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No bookmarked jobs yet</h3>
-                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                      Click the "Bookmark Job" button on any job card or details modal to save vacancies here.
-                    </p>
-                  </div>
-                ) : (
-                  <JobTable 
-                    jobs={savedJobs} 
-                    searchTerm={searchTerm} 
-                    onSelectJob={(job) => setSelectedJob(job)}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* COMMUNITY TAB */}
-            {activeTab === 'community' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                      JobProof Verified Developer Community
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Connect with engineers, share interview feedback, and verify employer offers.</p>
-                  </div>
-                  <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-xs">
-                    Start Discussion
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                          RA
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Rahul Agrawal</h4>
-                          <span className="text-[10px] text-slate-400">Senior Java Developer • 2 hours ago</span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                        Just cleared the technical round at XYZ Technologies! The JobProof direct application link took me straight to their internal ATS system. Interview covered Spring Boot microservices & distributed locking.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <button className="hover:text-indigo-600 font-semibold">👍 18 Likes</button>
-                        <button className="hover:text-indigo-600 font-semibold">💬 4 Comments</button>
-                        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400">
-                          Offer Verified
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-purple-600 text-white font-bold flex items-center justify-center text-xs">
-                          PS
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Priya Sharma</h4>
-                          <span className="text-[10px] text-slate-400">Full Stack Engineer • 5 hours ago</span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-                        Nexus Innovations is hiring remote developers across India with full salary disclosure! Trust score 98% verified by domain WHOIS and HR ATS link.
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
-                        <button className="hover:text-indigo-600 font-semibold">👍 24 Likes</button>
-                        <button className="hover:text-indigo-600 font-semibold">💬 9 Comments</button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 h-fit">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Trending Topics</h3>
-                    <div className="space-y-2 text-xs">
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 flex justify-between items-center">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">#SpringBoot2026</span>
-                        <span className="text-[10px] text-slate-400">142 posts</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 flex justify-between items-center">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">#RemoteJobsIndia</span>
-                        <span className="text-[10px] text-slate-400">98 posts</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 flex justify-between items-center">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">#SalaryBenchmark</span>
-                        <span className="text-[10px] text-slate-400">76 posts</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* MESSAGE TAB */}
-            {activeTab === 'message' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <MessageSquare className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                      Employer Messages & Verification Inbox
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Direct notifications from verified recruiters and employers.</p>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  <div className="p-5 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm">
-                      XYZ
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">XYZ Technologies HR Team</h4>
-                        <span className="text-[10px] text-slate-400">10:45 AM</span>
-                      </div>
-                      <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">Application Received — Senior Java Engineer</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Thank you for submitting your verified application via JobProof portal. Our engineering team is reviewing your profile.</p>
-                    </div>
-                  </div>
-
-                  <div className="p-5 flex items-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-sm">
-                      NI
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">Nexus Innovations Talent Acquisition</h4>
-                        <span className="text-[10px] text-slate-400">Yesterday</span>
-                      </div>
-                      <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">Interview Invitation — Full Stack React & Spring Boot</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Your verified trust score passed our initial screening. Please select a time slot for the technical discussion.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* AI ASSISTANT TAB */}
-            {activeTab === 'ai-assistant' && (
-              <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col h-[75vh]">
-                {/* Header */}
-                <div className="p-4 sm:p-6 bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
-                      <Sparkles className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold">JobProof AI Career & Verification Assistant</h3>
-                      <p className="text-xs text-slate-300">Ask about employer trust scores, salary benchmarks & interview prep</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                    Online AI
-                  </span>
-                </div>
-
-                {/* Messages Body */}
-                <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-50/50 dark:bg-slate-950/50">
-                  {chatMessages.map((msg, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {msg.sender === 'ai' && (
-                        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-                          AI
-                        </div>
-                      )}
-                      <div className={`p-4 rounded-2xl text-xs max-w-md ${
-                        msg.sender === 'user'
-                          ? 'bg-indigo-600 text-white rounded-br-none font-medium shadow-sm'
-                          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-none shadow-2xs'
-                      }`}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Quick Chips */}
-                <div className="px-6 py-2 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto text-[11px]">
-                  <button 
-                    onClick={() => setChatInput("Tell me about verified Java job salaries")}
-                    className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 font-medium whitespace-nowrap"
-                  >
-                    💰 Salary Insights
-                  </button>
-                  <button 
-                    onClick={() => setChatInput("How does JobProof verify employer domain?")}
-                    className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 font-medium whitespace-nowrap"
-                  >
-                    🛡️ How Verification Works
-                  </button>
-                  <button 
-                    onClick={() => setChatInput("What are the top skills for Full Stack React Developer?")}
-                    className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 font-medium whitespace-nowrap"
-                  >
-                    ⚡ Resume Skill Prep
-                  </button>
-                </div>
-
-                {/* Input Bar */}
-                <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
+            <form onSubmit={handlePostJobSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Job Title</label>
                   <input
                     type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
-                    placeholder="Ask JobProof AI anything..."
-                    className="flex-1 px-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-800 dark:text-slate-100"
+                    required
+                    placeholder="e.g. Lead Software Engineer"
+                    value={newJobForm.title}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, title: e.target.value })}
+                    className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none"
                   />
-                  <button
-                    onClick={handleSendChatMessage}
-                    className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Company Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Google"
+                    value={newJobForm.companyName}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, companyName: e.target.value })}
+                    className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none"
+                  />
                 </div>
               </div>
-            )}
 
-          </main>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Location</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. New York, USA"
+                    value={newJobForm.location}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, location: e.target.value })}
+                    className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 mb-1 font-semibold">Employment Type</label>
+                  <select
+                    value={newJobForm.employmentType}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, employmentType: e.target.value })}
+                    className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none"
+                  >
+                    <option value="Fulltime">Fulltime</option>
+                    <option value="Remote">Remote</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Part-time">Part-time</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 mb-1 font-semibold">Application URL</label>
+                <input
+                  type="url"
+                  placeholder="https://company.com/careers/apply"
+                  value={newJobForm.applyUrl}
+                  onChange={(e) => setNewJobForm({ ...newJobForm, applyUrl: e.target.value })}
+                  className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPostJobModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-400 font-bold hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={postingJob}
+                  className="px-6 py-2.5 rounded-xl bg-yellow-400 text-gray-950 font-extrabold hover:bg-yellow-300 transition shadow-lg shadow-yellow-500/20"
+                >
+                  {postingJob ? 'Submitting...' : 'Post & Verify Job'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Interactive Job Details Modal */}
+      {/* MAIN VIEW CONTROLLER */}
+      {activeTab === 'resume-analyzer' ? (
+        <div className="max-w-7xl mx-auto py-8 px-4">
+          <ResumeAnalyzerSection 
+            liveJobs={jobsToDisplay} 
+            onSelectJob={(job) => setSelectedJob(job)} 
+          />
+        </div>
+      ) : activeTab === 'admin-panel' ? (
+        <div className="max-w-7xl mx-auto py-8 px-4">
+          <AdminControlSection 
+            liveJobs={jobsToDisplay} 
+            currentUser={currentUser} 
+            onPostJobClick={() => setShowPostJobModal(true)}
+          />
+        </div>
+      ) : (
+        /* HOMEPAGE */
+        <main>
+          {/* 1. HERO SECTION */}
+          <HeroSection 
+            onSearch={handleHeroSearch} 
+            onCategorySelect={(cat) => setSelectedCategory(cat)}
+          />
+
+          {/* 2. TRUSTED BY 1000+ COMPANIES TICKER */}
+          <CompanyTickerSection />
+
+          {/* 3. BROWSE JOB CATEGORY GRID */}
+          <CategoryGridSection 
+            selectedCategory={selectedCategory} 
+            onSelectCategory={(cat) => {
+              setSelectedCategory(cat);
+              handleHeroSearch(cat || '');
+            }}
+          />
+
+          {/* 4. VERIFIED LIVE JOBS LISTINGS */}
+          <section id="job-listings-section" className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-12 space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-800 pb-6">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                  <ShieldCheck className="w-7 h-7 text-yellow-400" />
+                  Verified <span className="text-yellow-400">Live Job</span> Listings
+                </h2>
+                <p className="text-gray-400 text-xs sm:text-sm mt-1">
+                  Showing {filteredJobs.length} AI-verified active job openings with transparent trust scores
+                </p>
+              </div>
+
+              {/* Search Bar Input */}
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter listings..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-[#222228] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Job Grid Table */}
+            <JobTable 
+              jobs={filteredJobs} 
+              searchTerm={searchTerm} 
+              onSelectJob={(job) => setSelectedJob(job)}
+            />
+          </section>
+        </main>
+      )}
+
+      {/* JOB DETAILS MODAL */}
       {selectedJob && (
         <JobDetailsModal 
           job={selectedJob} 
           onClose={() => setSelectedJob(null)} 
-          onSave={handleToggleSaveJob}
-          isSaved={savedJobs.some((j) => j.id === selectedJob.id)}
         />
       )}
+
+      {/* FOOTER */}
+      <footer className="bg-[#141417] border-t border-gray-800/80 py-8 px-4 text-center text-xs text-gray-500 space-y-2">
+        <p className="font-bold text-gray-400">JobProof &copy; 2026. All rights reserved.</p>
+        <p className="text-[11px] text-gray-600">Powered by Spring Boot REST Backend API & React Vite Frontend.</p>
+      </footer>
+
     </div>
   );
 }
-

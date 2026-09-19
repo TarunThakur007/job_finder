@@ -1,0 +1,60 @@
+/* JobProof Vanilla CSS Styling */
+
+:root {
+  --bg-dark: #090D16;
+  --panel-dark: #0D121F;
+  --accent-blue: #2563EB;
+  --accent-emerald: #10B981;
+  --text-main: #F1F5F9;
+  --text-muted: #94A3B8;
+  --border-slate: #1E293B;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+}
+
+
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #090D16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Badge & Cards */
+.job-card {
+  transition: all 0.2s ease;
+}
+.job-card:hover {
+  border-color: #3B82F6;
+  transform: translateY(-2px);
+}

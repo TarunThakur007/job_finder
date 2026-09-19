@@ -22,6 +22,8 @@ $RECYCLE.BIN/
 # Java & Maven
 target/
 **/target/
+bin/
+**/bin/
 *.class
 *.jar
 *.war

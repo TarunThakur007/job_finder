@@ -2,13 +2,11 @@ import React from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
-  ExternalLink, 
   Building2, 
   MapPin, 
   Clock, 
-  Search, 
-  Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  ExternalLink
 } from 'lucide-react';
 
 export default function JobTable({ jobs, searchTerm, onSelectJob }) {
@@ -21,112 +19,105 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
     );
   });
 
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden space-y-6 p-6 transition-colors">
-      {/* Table Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Verified Job Postings</h3>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-              Live Sources
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-            Verified employer postings directly linked to original career portals.
-          </p>
-        </div>
-
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-          Showing <span className="font-bold text-slate-800 dark:text-slate-200">{filteredJobs.length}</span> verified vacancies
-        </div>
+  if (filteredJobs.length === 0) {
+    return (
+      <div className="bg-[#222228] rounded-2xl border border-gray-800 p-12 text-center space-y-3">
+        <ShieldCheck className="w-12 h-12 text-yellow-400 mx-auto opacity-60" />
+        <h3 className="text-lg font-bold text-white">No Verified Jobs Found</h3>
+        <p className="text-xs text-gray-400 max-w-sm mx-auto">
+          Try adjusting your search criteria or explore job categories above.
+        </p>
       </div>
+    );
+  }
 
-      {/* Verified Jobs Table / Feed */}
-      <div className="space-y-4">
-        {filteredJobs.map((job) => {
-          const compName = typeof job.company === 'object' ? job.company.name : job.company;
-          const score = job.score || job.trustScore || 90;
-          const salaryText = job.salaryDisplay || job.salary || "Salary not disclosed";
+  return (
+    <div className="space-y-4">
+      {filteredJobs.map((job) => {
+        const compName = typeof job.company === 'object' ? job.company.name : job.company;
+        const score = job.score || job.trustScore || 95;
+        const salaryText = job.salaryDisplay || job.salary || "Salary not disclosed";
 
-          return (
-            <div 
-              key={job.id} 
-              onClick={() => onSelectJob && onSelectJob(job)}
-              className="group cursor-pointer bg-slate-50/60 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 rounded-xl p-5 transition duration-200 space-y-4"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                {/* Job Title & Company Info */}
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-                      {job.title}
-                    </h4>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900">
-                      {job.jobType || job.employmentType || "Full-time"}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-300">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400" /> {compName}
-                    </span>
-                    <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" /> {job.location}
-                    </span>
-                    <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span className="text-slate-600 dark:text-slate-300 font-medium">
-                      {salaryText}
-                    </span>
-                  </div>
+        return (
+          <div 
+            key={job.id} 
+            onClick={() => onSelectJob && onSelectJob(job)}
+            className="group cursor-pointer bg-[#222228] hover:bg-[#282830] border border-gray-800 hover:border-yellow-500/50 rounded-2xl p-6 transition-all duration-300 space-y-4 shadow-xl gold-glow-card"
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Job Title & Company Info */}
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="text-lg font-black text-white group-hover:text-yellow-400 transition-colors">
+                    {job.title}
+                  </h3>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-yellow-400/10 text-yellow-400 border border-yellow-500/30">
+                    {job.jobType || job.employmentType || "Fulltime"}
+                  </span>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    {job.vacanciesCount || job.openings || 3} Vacancies Open
+                  </span>
                 </div>
 
-                {/* Verification Score & Direct Apply CTA */}
-                <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800 px-3.5 py-2 rounded-xl text-center min-w-[120px]">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                      Verification Score
-                    </div>
-                    <div className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
-                      {score} / 100
-                    </div>
-                  </div>
-
-                  <a
-                    href={job.applyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-md shadow-indigo-500/20 whitespace-nowrap"
-                  >
-                    Apply Directly <ArrowUpRight className="w-4 h-4" />
-                  </a>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
+                  <span className="flex items-center gap-1.5 font-bold text-white">
+                    <Building2 className="w-4 h-4 text-yellow-400" /> {compName}
+                  </span>
+                  <span className="text-gray-700">•</span>
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-gray-500" /> {job.location}
+                  </span>
+                  <span className="text-gray-700">•</span>
+                  <span className="text-yellow-400 font-extrabold">
+                    {salaryText}
+                  </span>
                 </div>
               </div>
 
-              {/* Evidence Bullets */}
-              <div className="pt-3 border-t border-slate-200/50 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    Verification Evidence:
-                  </span>
-                  {(job.evidence || ["Employer domain verified", "Official career source match", "Active application URL"]).map((ev, i) => (
-                    <span key={i} className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-md">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      {ev}
-                    </span>
-                  ))}
+              {/* Verification Score & Direct Apply CTA */}
+              <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-[#18181c] border border-yellow-500/30 px-4 py-2.5 rounded-xl text-center min-w-[130px]">
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider text-yellow-400">
+                    Trust Score
+                  </div>
+                  <div className="text-xl font-black text-yellow-400">
+                    {score} / 100
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Last verified {job.lastSeen || 'recently'}</span>
-                </div>
+                <a
+                  href={job.applyUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                >
+                  Apply Now <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                </a>
               </div>
             </div>
-          );
-        })}
-      </div>
+
+            {/* Evidence Badges */}
+            <div className="pt-4 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
+                  Verified Signals:
+                </span>
+                {(job.evidence || ["Employer domain verified", "Official career source match", "Active application URL"]).map((ev, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[11px] font-semibold text-gray-300 bg-[#18181c] border border-gray-800 px-2.5 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400" />
+                    {ev}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-mono">
+                <Clock className="w-3.5 h-3.5 text-yellow-400" />
+                <span>Verified {job.lastSeen || 'recently'}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

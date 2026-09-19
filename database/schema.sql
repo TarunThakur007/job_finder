@@ -1,82 +1,146 @@
--- JobProof Initial Database Schema Reference
--- Compatible with PostgreSQL 15+
+-- -- JobProof Initial Database Schema Reference
+-- -- Compatible with PostgreSQL 15+
 
-CREATE TABLE IF NOT EXISTS companies (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(255) NOT NULL UNIQUE,
-    domain VARCHAR(255) NOT NULL,
-    career_page_url VARCHAR(500),
-    logo_url VARCHAR(500),
-    verification_status VARCHAR(50) NOT NULL DEFAULT 'UNVERIFIED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE IF NOT EXISTS companies (
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(255) NOT NULL,
+--     slug VARCHAR(255) NOT NULL UNIQUE,
+--     domain VARCHAR(255) NOT NULL,
+--     career_page_url VARCHAR(500),
+--     logo_url VARCHAR(500),
+--     verification_status VARCHAR(50) NOT NULL DEFAULT 'UNVERIFIED',
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
 
-CREATE TABLE IF NOT EXISTS categories (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    slug VARCHAR(100) NOT NULL UNIQUE
-);
+-- CREATE TABLE IF NOT EXISTS categories (
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(100) NOT NULL UNIQUE,
+--     slug VARCHAR(100) NOT NULL UNIQUE
+-- );
 
-CREATE TABLE IF NOT EXISTS skills (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    slug VARCHAR(100) NOT NULL UNIQUE
-);
+-- CREATE TABLE IF NOT EXISTS skills (
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(100) NOT NULL UNIQUE,
+--     slug VARCHAR(100) NOT NULL UNIQUE
+-- );
 
-CREATE TABLE IF NOT EXISTS job_sources (
-    id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    source_type VARCHAR(50) NOT NULL,
-    trust_score INT NOT NULL DEFAULT 50,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
-);
+-- CREATE TABLE IF NOT EXISTS job_sources (
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(100) NOT NULL,
+--     source_type VARCHAR(50) NOT NULL,
+--     trust_score INT NOT NULL DEFAULT 50,
+--     is_active BOOLEAN NOT NULL DEFAULT TRUE
+-- );
 
-CREATE TABLE IF NOT EXISTS jobs (
-    id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    company_id BIGINT NOT NULL REFERENCES companies(id),
-    category_id BIGINT REFERENCES categories(id),
-    source_id BIGINT NOT NULL REFERENCES job_sources(id),
-    external_id VARCHAR(255),
-    description TEXT NOT NULL,
-    location VARCHAR(255) NOT NULL,
-    is_remote BOOLEAN NOT NULL DEFAULT FALSE,
-    job_type VARCHAR(50) NOT NULL,
-    experience_level VARCHAR(50) NOT NULL,
-    salary_min NUMERIC(12,2),
-    salary_max NUMERIC(12,2),
-    salary_currency VARCHAR(10),
-    salary_period VARCHAR(20),
-    selection_process TEXT,
-    application_url VARCHAR(1000) NOT NULL,
-    source_url VARCHAR(1000) NOT NULL,
-    posted_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    deadline TIMESTAMP WITH TIME ZONE,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING_REVIEW',
-    verification_score INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE IF NOT EXISTS jobs (
+--     id BIGSERIAL PRIMARY KEY,
+--     title VARCHAR(255) NOT NULL,
+--     company_id BIGINT NOT NULL REFERENCES companies(id),
+--     category_id BIGINT REFERENCES categories(id),
+--     source_id BIGINT NOT NULL REFERENCES job_sources(id),
+--     external_id VARCHAR(255),
+--     description TEXT NOT NULL,
+--     location VARCHAR(255) NOT NULL,
+--     is_remote BOOLEAN NOT NULL DEFAULT FALSE,
+--     job_type VARCHAR(50) NOT NULL,
+--     experience_level VARCHAR(50) NOT NULL,
+--     salary_min NUMERIC(12,2),
+--     salary_max NUMERIC(12,2),
+--     salary_currency VARCHAR(10),
+--     salary_period VARCHAR(20),
+--     selection_process TEXT,
+--     application_url VARCHAR(1000) NOT NULL,
+--     source_url VARCHAR(1000) NOT NULL,
+--     posted_at TIMESTAMP WITH TIME ZONE NOT NULL,
+--     last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL,
+--     deadline TIMESTAMP WITH TIME ZONE,
+--     status VARCHAR(50) NOT NULL DEFAULT 'PENDING_REVIEW',
+--     verification_score INT NOT NULL DEFAULT 0,
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
 
-CREATE TABLE IF NOT EXISTS job_skills (
-    job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-    skill_id BIGINT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
-    PRIMARY KEY (job_id, skill_id)
-);
+-- CREATE TABLE IF NOT EXISTS job_skills (
+--     job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+--     skill_id BIGINT NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+--     PRIMARY KEY (job_id, skill_id)
+-- );
 
-CREATE TABLE IF NOT EXISTS verification_results (
-    id BIGSERIAL PRIMARY KEY,
-    job_id BIGINT NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
-    company_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    original_source_found BOOLEAN NOT NULL DEFAULT FALSE,
-    url_status_code INT NOT NULL DEFAULT 0,
-    url_working BOOLEAN NOT NULL DEFAULT FALSE,
-    job_available BOOLEAN NOT NULL DEFAULT FALSE,
-    is_duplicate BOOLEAN NOT NULL DEFAULT FALSE,
-    score INT NOT NULL DEFAULT 0,
-    evidence_json TEXT NOT NULL,
-    verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- CREATE TABLE IF NOT EXISTS verification_results (
+--     id BIGSERIAL PRIMARY KEY,
+--     job_id BIGINT NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+--     company_verified BOOLEAN NOT NULL DEFAULT FALSE,
+--     original_source_found BOOLEAN NOT NULL DEFAULT FALSE,
+--     url_status_code INT NOT NULL DEFAULT 0,
+--     url_working BOOLEAN NOT NULL DEFAULT FALSE,
+--     job_available BOOLEAN NOT NULL DEFAULT FALSE,
+--     is_duplicate BOOLEAN NOT NULL DEFAULT FALSE,
+--     score INT NOT NULL DEFAULT 0,
+--     evidence_json TEXT NOT NULL,
+--     verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- -- User Profiles Table
+-- CREATE TABLE IF NOT EXISTS users (
+--     id BIGSERIAL PRIMARY KEY,
+--     name VARCHAR(255) NOT NULL,
+--     email VARCHAR(255) NOT NULL UNIQUE,
+--     password VARCHAR(255) NOT NULL,
+--     role VARCHAR(50) NOT NULL DEFAULT 'ROLE_USER',
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- -- User Resumes Storage & Parsing Table
+-- CREATE TABLE IF NOT EXISTS user_resumes (
+--     id BIGSERIAL PRIMARY KEY,
+--     user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+--     filename VARCHAR(255) NOT NULL,
+--     file_type VARCHAR(50) NOT NULL,
+--     file_size_bytes BIGINT NOT NULL,
+--     file_content_base64 TEXT,
+--     raw_extracted_text TEXT,
+--     parsed_contact_info JSONB,
+--     parsed_skills JSONB,
+--     parsed_experience JSONB,
+--     parsed_education JSONB,
+--     status VARCHAR(50) NOT NULL DEFAULT 'PARSED',
+--     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+--     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- -- Resume AI ATS Analysis Results Table
+-- CREATE TABLE IF NOT EXISTS resume_analyses (
+--     id BIGSERIAL PRIMARY KEY,
+--     resume_id BIGINT NOT NULL REFERENCES user_resumes(id) ON DELETE CASCADE,
+--     target_job_role VARCHAR(255) NOT NULL,
+--     overall_ats_score INT NOT NULL DEFAULT 0,
+--     formatting_score INT NOT NULL DEFAULT 0,
+--     keyword_match_score INT NOT NULL DEFAULT 0,
+--     impact_verb_score INT NOT NULL DEFAULT 0,
+--     extracted_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     missing_critical_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     strengths JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     formatting_warnings JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     improvement_recommendations JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     summary TEXT,
+--     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- -- Resume to Job Matches Table
+-- CREATE TABLE IF NOT EXISTS resume_job_matches (
+--     id BIGSERIAL PRIMARY KEY,
+--     resume_id BIGINT NOT NULL REFERENCES user_resumes(id) ON DELETE CASCADE,
+--     job_id BIGINT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+--     match_percentage INT NOT NULL DEFAULT 0,
+--     matched_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     missing_skills JSONB NOT NULL DEFAULT '[]'::jsonb,
+--     analyzed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- -- Indexes for performance queries
+-- CREATE INDEX IF NOT EXISTS idx_user_resumes_user_id ON user_resumes(user_id);
+-- CREATE INDEX IF NOT EXISTS idx_resume_analyses_resume_id ON resume_analyses(resume_id);
+-- CREATE INDEX IF NOT EXISTS idx_resume_job_matches_resume_id ON resume_job_matches(resume_id);
+-- CREATE INDEX IF NOT EXISTS idx_resume_job_matches_job_id ON resume_job_matches(job_id);
+
