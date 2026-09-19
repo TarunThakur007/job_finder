@@ -16,13 +16,20 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class SavedJobService {
 
     private final SavedJobRepository savedJobRepository;
     private final JobRepository jobRepository;
     private final UserRepository userRepository;
     private final JobMapper jobMapper;
+
+    public SavedJobService(SavedJobRepository savedJobRepository, JobRepository jobRepository,
+                           UserRepository userRepository, JobMapper jobMapper) {
+        this.savedJobRepository = savedJobRepository;
+        this.jobRepository = jobRepository;
+        this.userRepository = userRepository;
+        this.jobMapper = jobMapper;
+    }
 
     @Transactional
     public void saveJob(Long userId, Long jobId) {

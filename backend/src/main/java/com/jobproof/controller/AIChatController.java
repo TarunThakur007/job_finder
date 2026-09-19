@@ -11,15 +11,22 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ai")
-@RequiredArgsConstructor
 public class AIChatController {
 
     private final GeminiClientService geminiClientService;
 
-    @Data
+    public AIChatController(GeminiClientService geminiClientService) {
+        this.geminiClientService = geminiClientService;
+    }
+
     public static class ChatRequest {
         private String message;
         private String prompt;
+
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        public String getPrompt() { return prompt; }
+        public void setPrompt(String prompt) { this.prompt = prompt; }
     }
 
     @PostMapping("/chat")

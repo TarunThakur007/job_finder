@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class JobService {
 
     private final JobRepository jobRepository;
@@ -23,6 +22,16 @@ public class JobService {
     private final AIJobService aiJobService;
     private final VerificationService verificationService;
     private final JobMapper jobMapper;
+
+    public JobService(JobRepository jobRepository, CompanyService companyService,
+                      AIJobService aiJobService, VerificationService verificationService,
+                      JobMapper jobMapper) {
+        this.jobRepository = jobRepository;
+        this.companyService = companyService;
+        this.aiJobService = aiJobService;
+        this.verificationService = verificationService;
+        this.jobMapper = jobMapper;
+    }
 
     @Transactional(readOnly = true)
     public List<JobDTO> getAllJobs() {

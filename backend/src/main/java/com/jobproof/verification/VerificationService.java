@@ -15,10 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class VerificationService {
 
     private final VerificationResultRepository verificationResultRepository;
+
+    public VerificationService(VerificationResultRepository verificationResultRepository) {
+        this.verificationResultRepository = verificationResultRepository;
+    }
 
     @Transactional
     public VerificationDTO evaluateJobTrustScore(Job job) {

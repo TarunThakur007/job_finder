@@ -10,11 +10,15 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/jobs")
-@RequiredArgsConstructor
 public class VerificationController {
 
     private final JobRepository jobRepository;
     private final VerificationService verificationService;
+
+    public VerificationController(JobRepository jobRepository, VerificationService verificationService) {
+        this.jobRepository = jobRepository;
+        this.verificationService = verificationService;
+    }
 
     @GetMapping("/{id}/verification")
     public ResponseEntity<VerificationDTO> getVerificationResult(@PathVariable Long id) {

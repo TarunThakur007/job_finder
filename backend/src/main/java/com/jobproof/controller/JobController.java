@@ -11,10 +11,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/jobs")
-@RequiredArgsConstructor
 public class JobController {
 
     private final JobService jobService;
+
+    public JobController(JobService jobService) {
+        this.jobService = jobService;
+    }
 
     @GetMapping
     public ResponseEntity<List<JobDTO>> getAllJobs() {

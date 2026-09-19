@@ -10,10 +10,13 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class AIJobService {
 
     private final GeminiClientService geminiClientService;
+
+    public AIJobService(GeminiClientService geminiClientService) {
+        this.geminiClientService = geminiClientService;
+    }
 
     public void analyzeAndEnrichJob(Job job) {
         if (job == null) return;

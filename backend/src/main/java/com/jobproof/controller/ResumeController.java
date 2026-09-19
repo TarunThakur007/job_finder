@@ -11,10 +11,13 @@ import java.util.Arrays;
 
 @RestController
 @RequestMapping("/api/resumes")
-@RequiredArgsConstructor
 public class ResumeController {
 
     private final GeminiClientService geminiClientService;
+
+    public ResumeController(GeminiClientService geminiClientService) {
+        this.geminiClientService = geminiClientService;
+    }
 
     @PostMapping("/analyze")
     public ResponseEntity<ResumeDTO> analyzeResume(@RequestBody ResumeDTO request) {

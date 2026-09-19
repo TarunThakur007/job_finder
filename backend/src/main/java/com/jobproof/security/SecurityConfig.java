@@ -17,10 +17,10 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/public/**", "/api/jobs/**", "/api/health/**", "/api/resumes/**").permitAll()
+                .requestMatchers("/api/admin/**", "/api/public/**", "/api/jobs/**", "/api/health/**", "/api/resumes/**", "/h2-console/**").permitAll()
                 .anyRequest().authenticated()
-            );
+            )
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()));
 
         return http.build();
     }
