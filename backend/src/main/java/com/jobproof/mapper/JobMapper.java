@@ -55,11 +55,24 @@ public class JobMapper {
             salaryStr += " (Estimated)";
         }
 
-        List<String> defaultEvidence = Arrays.asList(
-                "Official Employer Site",
-                "Direct Application",
-                "Active Listing"
-        );
+        List<String> evidenceList;
+        if (job.getSummary() != null && job.getSummary().contains(" | ")) {
+            evidenceList = Arrays.stream(job.getSummary().split(" \\| "))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        } else if (job.getSummary() != null && job.getSummary().contains("; ")) {
+            evidenceList = Arrays.stream(job.getSummary().split("; "))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        } else {
+            evidenceList = Arrays.asList(
+                    "Official Employer Site",
+                    "Direct Application",
+                    "Active Listing"
+            );
+        }
 
         return JobDTO.builder()
                 .id(job.getId())
@@ -85,7 +98,7 @@ public class JobMapper {
                 .postedDate(job.getPostedDate())
                 .lastVerified(job.getLastVerified())
                 .skills(skillList)
-                .evidence(defaultEvidence)
+                .evidence(evidenceList)
                 .build();
     }
 }

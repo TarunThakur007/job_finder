@@ -101,7 +101,10 @@ public class JobDiscoveryAgent {
                     job = jobRepository.save(job);
 
                     // Compute dynamic trust score based on authentic company & real listing verification
-                    verificationService.evaluateJobTrustScore(job);
+                    com.jobproof.dto.VerificationDTO vResult = verificationService.evaluateJobTrustScore(job);
+                    if (vResult != null && vResult.getReasons() != null && !vResult.getReasons().isEmpty()) {
+                        job.setSummary(String.join(" | ", vResult.getReasons()));
+                    }
                     job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW);
                     jobRepository.save(job);
 

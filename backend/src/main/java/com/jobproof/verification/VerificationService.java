@@ -110,17 +110,23 @@ public class VerificationService {
 
         if (isOfficialTarget) {
             score += 10;
-            reasons.add("✓ Authenticated employer in official corporate target registry");
+            reasons.add("✓ Authenticated employer in official corporate target registry (+10 pts)");
+        } else {
+            reasons.add("⚠ Unregistered Employer: Not present in authenticated target company registry (-10 pts)");
         }
 
         if (company.getWebsite() != null && company.getWebsite().startsWith("https://")) {
             score += 5;
-            reasons.add("✓ Secure HTTPS official company portal verified");
+            reasons.add("✓ Secure HTTPS corporate website portal verified (+5 pts)");
+        } else {
+            reasons.add("⚠ Insecure / Missing Website: Company does not have a verified HTTPS portal (-5 pts)");
         }
 
         if (company.getCareerPage() != null && !company.getCareerPage().isBlank()) {
             score += 5;
-            reasons.add("✓ Official careers page endpoint authenticated");
+            reasons.add("✓ Official careers page endpoint authenticated (+5 pts)");
+        } else {
+            reasons.add("⚠ Missing Careers Page: No dedicated careers portal verified (-5 pts)");
         }
 
         return score;
@@ -133,7 +139,7 @@ public class VerificationService {
      */
     private int evaluateListingAndUrl(String url, Company company, String source, List<String> reasons) {
         if (url == null || url.isBlank()) {
-            reasons.add("Missing application URL (-35 pts)");
+            reasons.add("⚠ Missing Application Link: Vacancy has no direct apply URL (-35 pts)");
             return 0;
         }
 
@@ -143,9 +149,9 @@ public class VerificationService {
         // Must be secure HTTPS
         if (urlLower.startsWith("https://")) {
             score += 10;
-            reasons.add("✓ Secure SSL direct application endpoint");
+            reasons.add("✓ Secure SSL/HTTPS application endpoint (+10 pts)");
         } else {
-            reasons.add("Insecure HTTP protocol (-10 pts)");
+            reasons.add("⚠ Insecure Protocol: Application link uses unencrypted HTTP (-10 pts)");
             return 5;
         }
 
@@ -157,22 +163,31 @@ public class VerificationService {
         if (isGreenhouse || isLever || isAshby) {
             score += 15;
             String atsName = isGreenhouse ? "Greenhouse" : isLever ? "Lever" : "Ashby";
-            reasons.add("✓ Verified Direct " + atsName + " ATS endpoint: Confirmed hosted on employer's recruitment portal");
+            reasons.add("✓ Verified Direct " + atsName + " ATS endpoint (+15 pts)");
+        } else {
+            reasons.add("⚠ Third-Party / Aggregator Link: Not hosted on recognized official ATS (Greenhouse, Lever, Ashby) (-15 pts)");
         }
 
         // Verify employer domain or slug match inside the application link
+        boolean slugMatched = false;
         if (company != null && company.getName() != null) {
             String cleanComp = company.getName().toLowerCase().replaceAll("[^a-z0-9]", "");
             if (urlLower.contains(cleanComp)) {
                 score += 10;
-                reasons.add("✓ Direct application URL matches company identity ('" + company.getName() + "')");
+                slugMatched = true;
+                reasons.add("✓ Direct application URL matches company slug ('" + company.getName() + "') (+10 pts)");
             } else if (company.getWebsite() != null) {
                 String domain = extractDomain(company.getWebsite());
                 if (!domain.isEmpty() && urlLower.contains(domain)) {
                     score += 10;
-                    reasons.add("✓ Application URL matches employer corporate domain (" + domain + ")");
+                    slugMatched = true;
+                    reasons.add("✓ Application URL matches employer corporate domain (" + domain + ") (+10 pts)");
                 }
             }
+        }
+
+        if (!slugMatched) {
+            reasons.add("⚠ Domain Mismatch: Apply URL does not match company brand name or official domain (-10 pts)");
         }
 
         // Verify source legitimacy

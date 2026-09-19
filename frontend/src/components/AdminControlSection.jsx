@@ -369,17 +369,37 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                       </span>
                     </div>
 
-                    {/* Trust Signals Pill Row */}
+                    {/* Dynamic Trust Signals & Deduction Diagnostics */}
                     <div className="flex items-center gap-2 flex-wrap pt-1">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                        ✓ Direct ATS Application Form
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                        ✓ Verified Employer Domain
-                      </span>
-                      <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                        ✓ Active Live Vacancy
-                      </span>
+                      {job.evidence && job.evidence.length > 0 ? (
+                        job.evidence.map((signal, idx) => {
+                          const isWarning = signal.startsWith('⚠') || signal.includes('(-') || signal.includes('Mismatch') || signal.includes('Missing');
+                          return (
+                            <span
+                              key={idx}
+                              className={`px-2.5 py-1 rounded-md text-[10px] font-semibold border ${
+                                isWarning
+                                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1'
+                                  : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                              }`}
+                            >
+                              {signal}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Direct ATS Application Form
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Verified Employer Domain
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Active Live Vacancy
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
