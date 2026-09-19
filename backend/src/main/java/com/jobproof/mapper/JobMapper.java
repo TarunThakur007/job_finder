@@ -56,10 +56,9 @@ public class JobMapper {
         }
 
         List<String> defaultEvidence = Arrays.asList(
-                "Employer domain verified",
-                "Official career source match",
-                "Active application URL check passed",
-                "Verified posting freshness"
+                "Official Employer Site",
+                "Direct Application",
+                "Active Listing"
         );
 
         return JobDTO.builder()

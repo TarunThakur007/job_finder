@@ -90,9 +90,9 @@ export default function App() {
       salary: '$140,000 - $190,000 / yr',
       score: 98,
       evidence: [
-        'Official Google career domain verified',
-        'Direct ATS application endpoint match',
-        'Zero spam signals detected'
+        'Official Employer Site',
+        'Direct Application',
+        'Spam Free'
       ],
       lastSeen: '1 day ago',
       applyUrl: 'https://careers.google.com/jobs/101'
@@ -106,9 +106,9 @@ export default function App() {
       salary: '$150,000 - $210,000 / yr',
       score: 96,
       evidence: [
-        'Employer domain verified',
-        'Direct HR ATS link',
-        'Fresh listing within 24h'
+        'Official Employer Site',
+        'Direct Application',
+        'Active Listing'
       ],
       lastSeen: '2 hours ago',
       applyUrl: 'https://figma.com/careers/apply/202'
@@ -122,9 +122,9 @@ export default function App() {
       salary: '$130,000 - $175,000 / yr',
       score: 97,
       evidence: [
-        'Corporate portal match',
-        'Real-time response HTTP 200',
-        'Verified corporate domain'
+        'Official Employer Site',
+        'Direct Application',
+        'Active Listing'
       ],
       lastSeen: '14 minutes ago',
       applyUrl: 'https://lifeatspotify.com/jobs/303'
@@ -138,8 +138,9 @@ export default function App() {
       salary: '£85,000 - £120,000 / yr',
       score: 94,
       evidence: [
-        'Official career page link',
-        'Active ATS application URL'
+        'Official Employer Site',
+        'Direct Application',
+        'Active Listing'
       ],
       lastSeen: '4 hours ago',
       applyUrl: 'https://slack.com/careers/404'
@@ -153,8 +154,9 @@ export default function App() {
       salary: '$180,000 - $260,000 / yr',
       score: 99,
       evidence: [
-        'High trust AI algorithm score',
-        'Verified corporate domain'
+        'Official Employer Site',
+        'Direct Application',
+        'Spam Free'
       ],
       lastSeen: '30 minutes ago',
       applyUrl: 'https://jobs.netflix.com/jobs/505'

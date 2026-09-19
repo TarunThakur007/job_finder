@@ -13,6 +13,7 @@ import {
   ChevronRight,
   AlertTriangle
 } from 'lucide-react';
+import { formatSignal } from './JobTable';
 
 export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
   if (!job) return null;
@@ -28,12 +29,13 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
     'HR Interview'
   ];
 
-  const evidenceList = job.evidence || [
+  const rawEvidence = job.evidence || [
     'Employer domain verified',
     'Official career page match',
     'Direct ATS URL check passed',
     'Posting active & fresh'
   ];
+  const evidenceList = Array.from(new Set(rawEvidence.map(formatSignal).filter(Boolean)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
@@ -163,10 +165,10 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
             </div>
           </div>
 
-          {/* Verification Evidence Bullets */}
+          {/* Key Highlights & Trust Signals */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              Verification Evidence Signals
+            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              Key Highlights & Trust Signals
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {evidenceList.map((ev, idx) => (

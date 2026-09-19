@@ -9,6 +9,29 @@ import {
   ExternalLink
 } from 'lucide-react';
 
+export function formatSignal(signal) {
+  if (!signal) return '';
+  const lower = signal.toLowerCase();
+  if (lower.includes('http') || lower.includes('200') || lower.includes('fresh') || lower.includes('active listing') || lower.includes('freshness')) {
+    return 'Active Listing';
+  }
+  if (lower.includes('ats') || lower.includes('apply') || lower.includes('application')) {
+    return 'Direct Application';
+  }
+  if (lower.includes('domain') || lower.includes('portal') || lower.includes('career') || lower.includes('employer') || lower.includes('source')) {
+    return 'Official Employer Site';
+  }
+  if (lower.includes('spam')) {
+    return 'Spam Free';
+  }
+  if (lower.includes('trust') || lower.includes('match') || lower.includes('confidence') || lower.includes('algorithm')) {
+    return 'High Match';
+  }
+  // Strip redundant "Verified" prefix/suffix
+  const cleaned = signal.replace(/verified\s*/i, '').replace(/\s*verified/i, '').trim();
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Direct Match';
+}
+
 export default function JobTable({ jobs, searchTerm, onSelectJob }) {
   const filteredJobs = jobs.filter(job => {
     const compName = typeof job.company === 'object' ? job.company.name : job.company;
@@ -96,23 +119,27 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
               </div>
             </div>
 
-            {/* Evidence Badges */}
+            {/* Key Highlights / Benefit Signals */}
             <div className="pt-4 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold text-gray-400">
-                  Verified Signals:
+                  Highlights:
                 </span>
-                {(job.evidence || ["Employer domain verified", "Official career source match", "Active application URL"]).map((ev, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-xs font-medium text-gray-300 bg-[#18181c] border border-gray-800 px-2.5 py-1 rounded-lg">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400" />
-                    {ev}
+                {Array.from(new Set(
+                  (job.evidence || ["Official Employer Site", "Direct Application", "Active Listing"])
+                    .map(formatSignal)
+                    .filter(Boolean)
+                )).map((signal, i) => (
+                  <span key={i} className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-300 bg-[#18181c] border border-gray-800 px-2.5 py-1 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                    {signal}
                   </span>
                 ))}
               </div>
 
               <div className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
                 <Clock className="w-3.5 h-3.5 text-yellow-400" />
-                <span>Verified {job.lastSeen || 'recently'}</span>
+                <span>Active {job.lastSeen || 'recently'}</span>
               </div>
             </div>
           </div>
