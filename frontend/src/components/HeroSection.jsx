@@ -38,8 +38,8 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
             className="bg-[#222228] p-3 sm:p-4 rounded-2xl border border-gray-700/80 shadow-2xl flex flex-col sm:flex-row items-center gap-3 max-w-2xl"
           >
             {/* Job Title Field */}
-            <div className="flex-1 w-full bg-[#18181c] rounded-xl px-4 py-2 min-h-[56px] sm:h-16 flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
-              <label htmlFor="hero-job-title" className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+            <div className="flex-1 w-full bg-[#18181c] rounded-xl px-4 py-2 min-h-[58px] sm:h-[68px] flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
+              <label htmlFor="hero-job-title" className="block text-xs sm:text-sm font-extrabold text-gray-200 tracking-wide mb-0.5">
                 Job Title
               </label>
               <input
@@ -48,20 +48,20 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
                 placeholder="Software Engineer, Designer..."
                 value={titleQuery}
                 onChange={(e) => setTitleQuery(e.target.value)}
-                className="w-full bg-transparent text-white text-sm sm:text-base font-medium placeholder-gray-500 focus:outline-none h-10 sm:h-11"
+                className="w-full bg-transparent text-white text-sm sm:text-base font-medium placeholder-gray-500 focus:outline-none h-9 sm:h-10"
               />
             </div>
 
             {/* Job Type Field */}
-            <div className="w-full sm:w-44 bg-[#18181c] rounded-xl px-4 py-2 min-h-[56px] sm:h-16 flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
-              <label htmlFor="hero-job-type" className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+            <div className="w-full sm:w-48 bg-[#18181c] rounded-xl px-4 py-2 min-h-[58px] sm:h-[68px] flex flex-col justify-center border border-gray-800 focus-within:border-yellow-500/60 transition-colors">
+              <label htmlFor="hero-job-type" className="block text-xs sm:text-sm font-extrabold text-gray-200 tracking-wide mb-0.5">
                 Job Type
               </label>
               <select
                 id="hero-job-type"
                 value={typeQuery}
                 onChange={(e) => setTypeQuery(e.target.value)}
-                className="w-full bg-transparent text-white text-sm sm:text-base font-medium focus:outline-none cursor-pointer h-10 sm:h-11"
+                className="w-full bg-transparent text-white text-sm sm:text-base font-medium focus:outline-none cursor-pointer h-9 sm:h-10"
               >
                 <option value="Fulltime" className="bg-[#18181c] text-white">Fulltime</option>
                 <option value="Remote" className="bg-[#18181c] text-white">Remote</option>
@@ -75,7 +75,7 @@ export default function HeroSection({ onSearch, onCategorySelect }) {
             <button
               type="submit"
               aria-label="Search jobs"
-              className="w-full sm:w-16 h-14 sm:h-16 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl font-bold flex items-center justify-center transition-all duration-200 transform active:scale-95 shadow-lg shadow-yellow-500/20 group flex-shrink-0"
+              className="w-full sm:w-16 h-14 sm:h-[68px] bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl font-bold flex items-center justify-center transition-all duration-200 transform active:scale-95 shadow-lg shadow-yellow-500/20 group flex-shrink-0"
               title="Search Jobs"
             >
               <Search className="w-6 h-6 stroke-[2.5] group-hover:scale-110 transition-transform" />
