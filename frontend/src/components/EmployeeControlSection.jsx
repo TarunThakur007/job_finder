@@ -25,12 +25,15 @@ import {
   Briefcase,
   Layers,
   Clock,
-  Filter
+  Filter,
+  Edit3,
+  Award
 } from 'lucide-react';
 import ApplicantResumeModal from './ApplicantResumeModal';
+import EditAndGrantPermissionModal from './EditAndGrantPermissionModal';
 
-export default function AdminControlSection({ liveJobs = [], currentUser, onPostJobClick, onLoginAsAdmin }) {
-  const [activeMainTab, setActiveMainTab] = useState('applications'); // 'applications' | 'vacancies'
+export default function EmployeeControlSection({ liveJobs = [], currentUser, onPostJobClick, onLoginAsEmployee }) {
+  const [activeTab, setActiveTab] = useState('vacancies'); // 'vacancies' | 'applications'
   
   // Vacancies State
   const [pendingJobs, setPendingJobs] = useState([]);
@@ -38,8 +41,8 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
   const [loading, setLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState(null);
   const [discovering, setDiscovering] = useState(false);
-  const [cleaning, setCleaning] = useState(false);
   const [vacancySearch, setVacancySearch] = useState('');
+  const [editingJob, setEditingJob] = useState(null);
 
   // Applications State
   const [applications, setApplications] = useState([]);
@@ -137,7 +140,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         setAdminStats(stats);
       }
     } catch (err) {
-      console.error('Error loading admin moderation queue:', err);
+      console.error('Error loading AI vacancies:', err);
     } finally {
       setLoading(false);
     }
@@ -158,7 +161,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         setApplications(defaultApplications);
       }
     } catch (err) {
-      console.error('Error fetching applications from backend:', err);
+      console.error('Error loading applications:', err);
       setApplications(defaultApplications);
     } finally {
       setApplicationsLoading(false);
@@ -170,10 +173,31 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
     fetchApplications();
   }, []);
 
-  // Admin Permission Guard - with one-click Admin permission enable
-  const isAdmin = currentUser?.role === 'ROLE_ADMIN';
+  // Check if current user has employee / admin role
+  const isEmployee = currentUser?.role === 'ROLE_EMPLOYEE' || currentUser?.role === 'ROLE_ADMIN';
 
-  const handleApproveVacancy = async (job) => {
+  // Fast one-click Employee login if guest
+  const handleQuickEmployeeLogin = () => {
+    const employeeUser = {
+      name: 'Sarah Jenkins',
+      email: 'sarah.jenkins@google.com',
+      role: 'ROLE_EMPLOYEE',
+      title: 'Company Recruiter & Hiring Partner',
+      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120',
+      company: 'Google'
+    };
+    try {
+      localStorage.setItem('jobproof_user', JSON.stringify(employeeUser));
+      if (onLoginAsEmployee) {
+        onLoginAsEmployee(employeeUser);
+      } else {
+        window.location.reload();
+      }
+    } catch (e) {}
+  };
+
+  // Direct Grant Permission (Approve)
+  const handleGrantPermission = async (job) => {
     try {
       const res = await fetch(`/api/admin/vacancies/${job.id}/approve`, {
         method: 'PUT'
@@ -183,18 +207,19 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         setPendingJobs(prev => prev.filter(j => j.id !== job.id));
         setActionNotice({
           type: 'success',
-          msg: `Approved & Published: "${job.title}" at ${job.company?.name || 'the employer'} is now live on the public site with Trust Score ${job.trustScore || 98}%!`
+          msg: `Permission Granted: "${job.title}" at ${job.company?.name || 'Company'} is published live to the job board!`
         });
         fetchPendingJobs();
       } else {
-        throw new Error('Approval failed');
+        throw new Error('Granting permission failed');
       }
     } catch (e) {
-      setActionNotice({ type: 'error', msg: `Failed to approve job #${job.id}.` });
+      setActionNotice({ type: 'error', msg: `Failed to grant permission for job #${job.id}.` });
     }
     setTimeout(() => setActionNotice(null), 4500);
   };
 
+  // Discard / Reject AI vacancy
   const handleRejectVacancy = async (id, title) => {
     try {
       const res = await fetch(`/api/admin/vacancies/${id}/reject`, {
@@ -205,27 +230,28 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         setPendingJobs(prev => prev.filter(j => j.id !== id));
         setActionNotice({
           type: 'info',
-          msg: `Rejected & Discarded: "${title}" removed from staging queue.`
+          msg: `Discarded: AI vacancy "${title}" removed from staging queue.`
         });
         fetchPendingJobs();
       } else {
-        throw new Error('Rejection failed');
+        throw new Error('Discard failed');
       }
     } catch (e) {
-      setActionNotice({ type: 'error', msg: `Failed to reject job #${id}.` });
+      setActionNotice({ type: 'error', msg: `Failed to discard job #${id}.` });
     }
     setTimeout(() => setActionNotice(null), 4500);
   };
 
+  // Trigger on-demand AI Discovery
   const handleTriggerDiscovery = async () => {
     setDiscovering(true);
-    setActionNotice({ type: 'info', msg: 'AI Discovery Agent launched across Greenhouse, Lever, and Ashby boards...' });
+    setActionNotice({ type: 'info', msg: 'AI Discovery Agent crawling target ATS boards (Greenhouse, Lever, Ashby)...' });
     try {
       const res = await fetch('/api/admin/vacancies/discover', { method: 'POST' });
       const data = await res.json();
       setActionNotice({
         type: 'success',
-        msg: `AI Discovery Complete: Discovered and staged ${data.stagedCount} new vacancies for Admin review!`
+        msg: `AI Crawl Complete: Discovered and staged ${data.stagedCount} fresh vacancies awaiting your review!`
       });
       fetchPendingJobs();
     } catch (e) {
@@ -236,42 +262,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
     }
   };
 
-  const handleCleanDummyData = async () => {
-    setCleaning(true);
-    try {
-      const res = await fetch('/api/admin/clean-dummy-data', { method: 'POST' });
-      const data = await res.json();
-      setActionNotice({
-        type: 'success',
-        msg: `Data Sanitization Complete: Purged dummy data (${data.deletedJobs} mock jobs, ${data.deletedCompanies} mock companies removed). Only real authenticated companies remain!`
-      });
-      fetchPendingJobs();
-    } catch (e) {
-      setActionNotice({ type: 'error', msg: 'Failed to purge dummy data.' });
-    } finally {
-      setCleaning(false);
-      setTimeout(() => setActionNotice(null), 5000);
-    }
-  };
-
-  const handleQuickAdminLogin = () => {
-    const adminUser = {
-      name: 'Sarah Jenkins (Admin)',
-      email: 'sarah.admin@jobproof.io',
-      role: 'ROLE_ADMIN',
-      title: 'System Administrator & Recruiter',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120'
-    };
-    try {
-      localStorage.setItem('jobproof_user', JSON.stringify(adminUser));
-      if (onLoginAsAdmin) {
-        onLoginAsAdmin(adminUser);
-      } else {
-        window.location.reload();
-      }
-    } catch (e) {}
-  };
-
+  // Update candidate status
   const handleUpdateApplicationStatus = async (appId, newStatus) => {
     try {
       const res = await fetch(`/api/admin/applications/${appId}/status`, {
@@ -287,7 +278,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
       }
       setActionNotice({
         type: 'success',
-        msg: `Application #${appId} updated to status "${newStatus}".`
+        msg: `Candidate application #${appId} moved to "${newStatus}".`
       });
     } catch (e) {
       setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
@@ -295,30 +286,40 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
     setTimeout(() => setActionNotice(null), 4000);
   };
 
-  if (!isAdmin) {
+  if (!isEmployee) {
     return (
       <div className="bg-[#222228] border border-yellow-500/30 rounded-3xl p-8 sm:p-12 text-center space-y-6 animate-fadeIn max-w-2xl mx-auto shadow-2xl">
         <div className="w-16 h-16 rounded-3xl bg-yellow-400/10 text-yellow-400 flex items-center justify-center mx-auto shadow-inner border border-yellow-500/20">
-          <Lock className="w-8 h-8" />
+          <Briefcase className="w-8 h-8" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-white">Administrator Moderation Console</h2>
+          <h2 className="text-2xl font-black text-white">Employee & Recruiter Portal</h2>
           <p className="text-xs text-gray-400 leading-relaxed max-w-md mx-auto">
-            You are currently viewing as candidate. To inspect all user applications, view candidate resumes and applicant details, and approve AI job listings, activate Administrator permissions below.
+            Access to review AI-discovered vacancies, edit listing details, grant permissions to publish live, and manage candidate applicants is restricted to hiring team members.
           </p>
         </div>
         <div className="pt-2 flex justify-center">
           <button
-            onClick={handleQuickAdminLogin}
+            onClick={handleQuickEmployeeLogin}
             className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black tracking-wide shadow-lg shadow-yellow-500/20 active:scale-95 transition-all"
           >
             <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-            <span>Enable Administrator Permissions & Access Console</span>
+            <span>Enable Company Employee Access</span>
           </button>
         </div>
       </div>
     );
   }
+
+  // Filter pending vacancies
+  const filteredJobs = pendingJobs.filter(j => {
+    if (!vacancySearch) return true;
+    const term = vacancySearch.toLowerCase();
+    const compName = (j.company?.name || '').toLowerCase();
+    const title = (j.title || '').toLowerCase();
+    const source = (j.source || '').toLowerCase();
+    return compName.includes(term) || title.includes(term) || source.includes(term);
+  });
 
   // Filter applications
   const filteredApplications = applications.filter(app => {
@@ -335,61 +336,42 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
     return name.includes(term) || email.includes(term) || jobTitle.includes(term) || company.includes(term) || role.includes(term) || skills.includes(term);
   });
 
-  // Filter pending vacancies
-  const filteredJobs = pendingJobs.filter(j => {
-    if (!vacancySearch) return true;
-    const term = vacancySearch.toLowerCase();
-    const compName = (j.company?.name || '').toLowerCase();
-    const title = (j.title || '').toLowerCase();
-    const source = (j.source || '').toLowerCase();
-    return compName.includes(term) || title.includes(term) || source.includes(term);
-  });
-
-  // Stats calculation
-  const totalApps = applications.length;
-  const pendingApps = applications.filter(a => a.status === 'PENDING').length;
-  const shortlistedApps = applications.filter(a => a.status === 'SHORTLISTED').length;
-  const reviewingApps = applications.filter(a => a.status === 'REVIEWING').length;
-  const acceptedApps = applications.filter(a => a.status === 'ACCEPTED').length;
-
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Admin Control Banner */}
+      
+      {/* Employee Operations Banner */}
       <div className="bg-[#222228] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-yellow-500/30 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-3 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold">
-            <Lock className="w-3.5 h-3.5 text-yellow-400" />
-            <span>Administrator Control Console (ROLE_ADMIN)</span>
+            <Briefcase className="w-3.5 h-3.5 text-yellow-400" />
+            <span>Company Employee & Recruiter Workspace</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-            Recruitment & <span className="text-yellow-400">Applications Console</span>
+            AI Staging & <span className="text-yellow-400">Permission Grant Center</span>
           </h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            Manage incoming candidate job applications, inspect full candidate profiles and resumes with ATS compatibility diagnostics, and moderate AI-discovered employer vacancies.
+            Review vacancies discovered by the autonomous AI Agent across Greenhouse, Lever, and Ashby boards. Inspect and refine details, grant permission to publish live with verified trust scores, and evaluate candidate resumes.
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {/* AI Discovery Trigger Button */}
           <button
             onClick={handleTriggerDiscovery}
             disabled={discovering}
             className="flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black tracking-wide transition shadow-lg shadow-yellow-500/20 active:scale-95 disabled:opacity-60"
           >
             <Sparkles className={`w-4 h-4 ${discovering ? 'animate-spin' : ''}`} />
-            <span>{discovering ? 'Agent Crawling ATS Feeds...' : '⚡ Run AI Discovery Agent'}</span>
+            <span>{discovering ? 'AI Agent Crawling ATS Feeds...' : '⚡ Run AI Discovery Agent'}</span>
           </button>
 
-          {/* Purge Dummy Data Button */}
-          <button
-            onClick={handleCleanDummyData}
-            disabled={cleaning}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/30 text-xs font-bold transition active:scale-95 disabled:opacity-60"
-            title="Purge legacy mock/dummy data"
-          >
-            <Trash2 className="w-4 h-4 text-rose-400" />
-            <span>{cleaning ? 'Cleaning...' : 'Purge Dummy Data'}</span>
-          </button>
+          {onPostJobClick && (
+            <button
+              onClick={onPostJobClick}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold transition active:scale-95"
+            >
+              <span>+ Post Manual Vacancy</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -413,12 +395,29 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         </div>
       )}
 
-      {/* Main Console Navigation Tabs */}
+      {/* Navigation Switcher: AI Vacancies vs Candidate Applications */}
       <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
         <button
-          onClick={() => setActiveMainTab('applications')}
+          onClick={() => setActiveTab('vacancies')}
           className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeMainTab === 'applications'
+            activeTab === 'vacancies'
+              ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
+              : 'bg-slate-900 text-gray-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>AI Vacancies & Grant Permissions</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            activeTab === 'vacancies' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
+          }`}>
+            {pendingJobs.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('applications')}
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+            activeTab === 'applications'
               ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
               : 'bg-slate-900 text-gray-400 hover:text-white hover:bg-slate-800 border border-slate-800'
           }`}
@@ -426,82 +425,241 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
           <Users className="w-4 h-4" />
           <span>Candidate Applications</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeMainTab === 'applications' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
+            activeTab === 'applications' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
           }`}>
             {applications.length}
           </span>
         </button>
-
-        <button
-          onClick={() => setActiveMainTab('vacancies')}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeMainTab === 'vacancies'
-              ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
-              : 'bg-slate-900 text-gray-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4" />
-          <span>AI Vacancies Queue</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeMainTab === 'vacancies' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
-          }`}>
-            {pendingJobs.length}
-          </span>
-        </button>
       </div>
 
-      {/* VIEW 1: CANDIDATE APPLICATIONS */}
-      {activeMainTab === 'applications' && (
+      {/* TAB 1: AI VACANCIES & GRANT PERMISSION */}
+      {activeTab === 'vacancies' && (
         <div className="space-y-6">
-          {/* Telemetry Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          {/* Telemetry Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+              <p className="text-xs text-slate-400 font-semibold">Awaiting Your Permission</p>
+              <p className="text-3xl font-extrabold text-amber-400 mt-1">{pendingJobs.length}</p>
+              <p className="text-[11px] text-amber-400/80 mt-1">Discovered by AI Agent</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+              <p className="text-xs text-slate-400 font-semibold">Live Approved Jobs</p>
+              <p className="text-3xl font-extrabold text-emerald-400 mt-1">{adminStats?.activeJobs || 0}</p>
+              <p className="text-[11px] text-emerald-400/80 mt-1">Granted Permission & Published</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+              <p className="text-xs text-slate-400 font-semibold">Total Verified Positions</p>
+              <p className="text-3xl font-extrabold text-white mt-1">{adminStats?.totalJobs || 0}</p>
+              <p className="text-[11px] text-blue-400 mt-1">In Platform Governance</p>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+              <p className="text-xs text-slate-400 font-semibold">Connected ATS Feeds</p>
+              <p className="text-3xl font-extrabold text-yellow-400 mt-1">3 ATS</p>
+              <p className="text-[11px] text-gray-400 mt-1">Greenhouse • Lever • Ashby</p>
+            </div>
+          </div>
+
+          {/* AI Staging Queue */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-yellow-400" />
+                  <span>AI Discovered Listings Awaiting Employee Permission ({filteredJobs.length})</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  Inspect the details discovered by the AI agent. You can click <strong>"Review & Edit Details"</strong> to refine information or click <strong>"Grant Permission"</strong> to publish live.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filter by company, title..."
+                    value={vacancySearch}
+                    onChange={e => setVacancySearch(e.target.value)}
+                    className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-yellow-400 w-48 sm:w-64"
+                  />
+                </div>
+
+                <button
+                  onClick={fetchPendingJobs}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  title="Refresh queue"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="py-12 text-center text-slate-400 space-y-3">
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
+                <p className="text-xs font-semibold">Loading AI-discovered vacancies...</p>
+              </div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 space-y-3 bg-slate-800/30 rounded-2xl border border-dashed border-slate-800">
+                <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
+                <h4 className="text-sm font-bold text-white">All Vacancies Processed!</h4>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  No pending AI listings currently awaiting permission. Click "Run AI Discovery Agent" above to fetch fresh job openings from target employer boards.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredJobs.map((job) => {
+                  const compName = job.company?.name || 'Target Employer';
+                  const trustScore = job.trustScore || 95;
+                  const sourceLabel = job.source || 'AI Greenhouse / Lever Crawler';
+
+                  return (
+                    <div
+                      key={job.id}
+                      className="p-5 rounded-2xl bg-[#1c1c22] border border-slate-800 hover:border-slate-700 transition flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm"
+                    >
+                      {/* Left: Job Details & AI Signals */}
+                      <div className="space-y-2.5 max-w-2xl">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-white text-base">{job.title}</h4>
+                          
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                            <span>Employer Verified</span>
+                          </span>
+
+                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[11px] font-bold border border-purple-500/20 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-purple-400" />
+                            <span>AI Agent Feed</span>
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                          <span className="font-bold text-slate-200">🏢 {compName}</span>
+                          <span>•</span>
+                          <span>📍 {job.location || 'Remote'}</span>
+                          <span>•</span>
+                          <span>💼 {job.employmentType || 'Full-time'}</span>
+                          <span>•</span>
+                          <span className="text-emerald-400 font-semibold">
+                            Direct Apply Link: <span className="font-mono text-[10px] text-slate-400">{job.applyUrl ? (job.applyUrl.substring(0, 40) + '...') : 'N/A'}</span>
+                          </span>
+                        </div>
+
+                        {/* AI Signals */}
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Official ATS Source: {sourceLabel}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Direct Application URL Matched
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
+                            ✓ Requisition Active
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions for Employee */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-800">
+                        {/* Score */}
+                        <div className="flex sm:flex-col items-center justify-between sm:justify-center px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center">
+                          <span className="text-[10px] uppercase font-bold text-emerald-500">AI Trust</span>
+                          <span className="text-sm font-black">{trustScore}%</span>
+                        </div>
+
+                        {/* Review & Edit AI Details Button */}
+                        <button
+                          onClick={() => setEditingJob(job)}
+                          className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-slate-700"
+                          title="Inspect and edit details extracted by AI"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-yellow-400" />
+                          <span>Review & Edit Details</span>
+                        </button>
+
+                        {/* GRANT PERMISSION BUTTON */}
+                        <button
+                          onClick={() => handleGrantPermission(job)}
+                          className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-yellow-500/20 active:scale-95"
+                          title="Grant permission to publish this AI job listing live"
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                          <span>Grant Permission</span>
+                        </button>
+
+                        {/* Reject / Discard Button */}
+                        <button
+                          onClick={() => handleRejectVacancy(job.id, job.title)}
+                          className="p-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 transition flex items-center justify-center border border-rose-800/40 active:scale-95"
+                          title="Discard this AI listing"
+                        >
+                          <Trash2 className="w-4 h-4 text-rose-400" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CANDIDATE APPLICATIONS */}
+      {activeTab === 'applications' && (
+        <div className="space-y-6">
+          {/* Telemetry Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
               <p className="text-xs text-slate-400 font-semibold">Total Applications</p>
-              <p className="text-3xl font-extrabold text-white mt-1">{totalApps}</p>
-              <p className="text-[11px] text-gray-400 mt-1">Submitted by Candidates</p>
+              <p className="text-3xl font-extrabold text-white mt-1">{applications.length}</p>
+              <p className="text-[11px] text-gray-400 mt-1">Submitted for Your Jobs</p>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
               <p className="text-xs text-slate-400 font-semibold">Pending Review</p>
-              <p className="text-3xl font-extrabold text-amber-400 mt-1">{pendingApps}</p>
-              <p className="text-[11px] text-amber-400/80 mt-1">Awaiting Recruiter Action</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Under Review</p>
-              <p className="text-3xl font-extrabold text-blue-400 mt-1">{reviewingApps}</p>
-              <p className="text-[11px] text-blue-400/80 mt-1">Hiring Team Evaluating</p>
+              <p className="text-3xl font-extrabold text-amber-400 mt-1">
+                {applications.filter(a => a.status === 'PENDING').length}
+              </p>
+              <p className="text-[11px] text-amber-400/80 mt-1">Action Required</p>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
               <p className="text-xs text-slate-400 font-semibold">Shortlisted</p>
-              <p className="text-3xl font-extrabold text-emerald-400 mt-1">{shortlistedApps}</p>
+              <p className="text-3xl font-extrabold text-emerald-400 mt-1">
+                {applications.filter(a => a.status === 'SHORTLISTED').length}
+              </p>
               <p className="text-[11px] text-emerald-400/80 mt-1">Ready for Interview</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl col-span-2 sm:col-span-1">
+            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
               <p className="text-xs text-slate-400 font-semibold">Accepted / Offers</p>
-              <p className="text-3xl font-extrabold text-purple-400 mt-1">{acceptedApps}</p>
-              <p className="text-[11px] text-purple-400/80 mt-1">Advanced to Hiring</p>
+              <p className="text-3xl font-extrabold text-purple-400 mt-1">
+                {applications.filter(a => a.status === 'ACCEPTED').length}
+              </p>
+              <p className="text-[11px] text-purple-400/80 mt-1">Advancing to Hire</p>
             </div>
           </div>
 
-          {/* Applications Queue Card */}
+          {/* Applications Table Card */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Users className="w-5 h-5 text-yellow-400" />
-                  <span>Candidate Applications & Resume Review ({filteredApplications.length})</span>
+                  <span>Applicant Review & Resumes ({filteredApplications.length})</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Click "View Details & Resume" to inspect full candidate contact details, work history, skills, and interactive ATS resume.
+                  Inspect candidate contact info, work history, skills, and interactive ATS resume.
                 </p>
               </div>
 
-              {/* Status Filters & Search */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                {/* Search */}
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -513,7 +671,6 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                   />
                 </div>
 
-                {/* Filter Status Dropdown */}
                 <select
                   value={selectedStatusFilter}
                   onChange={(e) => setSelectedStatusFilter(e.target.value)}
@@ -540,14 +697,14 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
             {applicationsLoading ? (
               <div className="py-12 text-center text-slate-400 space-y-3">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
-                <p className="text-xs font-semibold">Loading candidate applications...</p>
+                <p className="text-xs font-semibold">Loading applications...</p>
               </div>
             ) : filteredApplications.length === 0 ? (
               <div className="py-12 text-center text-slate-400 space-y-3 bg-slate-800/30 rounded-2xl border border-dashed border-slate-800">
                 <Users className="w-10 h-10 mx-auto text-slate-500" />
                 <h4 className="text-sm font-bold text-white">No Applications Found</h4>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  No candidate applications match the selected filter. Try choosing "All Statuses" or clearing your search.
+                  No candidate applications match your current search/filter.
                 </p>
               </div>
             ) : (
@@ -567,9 +724,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                       key={app.id}
                       className="p-5 rounded-2xl bg-[#1c1c22] border border-slate-800 hover:border-slate-700 transition flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm"
                     >
-                      {/* Left: Applicant Information & Job Info */}
                       <div className="flex items-start gap-4 max-w-2xl">
-                        {/* Initials Avatar */}
                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-500 text-gray-950 font-black text-base flex items-center justify-center flex-shrink-0 shadow-md shadow-yellow-500/20">
                           {app.applicantName?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'CA'}
                         </div>
@@ -600,7 +755,6 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                             </span>
                           </div>
 
-                          {/* Resume & Skills Badges */}
                           <div className="flex items-center gap-2 flex-wrap pt-1">
                             <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 text-slate-300 text-[11px] font-semibold border border-slate-700 flex items-center gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-rose-400" />
@@ -615,24 +769,16 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                                 {s}
                               </span>
                             ))}
-                            {Array.isArray(app.skills) && app.skills.length > 4 && (
-                              <span className="text-[10px] text-slate-400 font-semibold">
-                                +{app.skills.length - 4} more
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Right: ATS Score & Actions */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-800">
-                        {/* ATS Match Score */}
                         <div className="flex sm:flex-col items-center justify-between sm:justify-center px-4 py-2 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-center">
                           <span className="text-[10px] uppercase font-bold text-blue-400">ATS Match</span>
                           <span className="text-base font-black">{app.atsMatchScore || 92}%</span>
                         </div>
 
-                        {/* View Details & Resume Button */}
                         <button
                           onClick={() => setSelectedApplication(app)}
                           className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-yellow-500/20 active:scale-95"
@@ -641,29 +787,16 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
                           <span>View Details & Resume</span>
                         </button>
 
-                        {/* Quick Shortlist Button */}
                         {app.status !== 'SHORTLISTED' && (
                           <button
                             onClick={() => handleUpdateApplicationStatus(app.id, 'SHORTLISTED')}
                             className="px-3 py-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1 border border-emerald-800/40 active:scale-95"
-                            title="Shortlist applicant"
+                            title="Shortlist candidate"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                             <span>Shortlist</span>
                           </button>
                         )}
-
-                        {/* Quick Reject Button */}
-                        {app.status !== 'REJECTED' && (
-                          <button
-                            onClick={() => handleUpdateApplicationStatus(app.id, 'REJECTED')}
-                            className="px-3 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-bold transition flex items-center justify-center gap-1 border border-rose-800/40 active:scale-95"
-                            title="Reject application"
-                          >
-                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                            <span>Reject</span>
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -674,211 +807,24 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
         </div>
       )}
 
-      {/* VIEW 2: AI VACANCIES QUEUE */}
-      {activeMainTab === 'vacancies' && (
-        <div className="space-y-6">
-          {/* Telemetry Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Pending Admin Approval</p>
-              <p className="text-3xl font-extrabold text-amber-400 mt-1">{pendingJobs.length}</p>
-              <p className="text-[11px] text-amber-400/80 mt-1">Awaiting Permission to Publish</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Live Approved Jobs</p>
-              <p className="text-3xl font-extrabold text-emerald-400 mt-1">{adminStats?.activeJobs || 0}</p>
-              <p className="text-[11px] text-emerald-400/80 mt-1">100% Authenticated & Live</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Total Verified Jobs</p>
-              <p className="text-3xl font-extrabold text-white mt-1">{adminStats?.totalJobs || 0}</p>
-              <p className="text-[11px] text-blue-400 mt-1">In Database Governance</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Verified Target Employers</p>
-              <p className="text-3xl font-extrabold text-yellow-400 mt-1">9</p>
-              <p className="text-[11px] text-gray-400 mt-1">Greenhouse • Lever • Ashby</p>
-            </div>
-          </div>
-
-          {/* Main Approval & Review Queue */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-              <div>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-yellow-400" />
-                  <span>AI Vacancy Approval Queue ({filteredJobs.length})</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Verify employer authentication, inspect direct ATS application URLs, and click "Approve" to publish.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Search filter input */}
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Filter by company, title..."
-                    value={vacancySearch}
-                    onChange={e => setVacancySearch(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-yellow-400 w-48 sm:w-64"
-                  />
-                </div>
-
-                <button
-                  onClick={fetchPendingJobs}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                  title="Refresh queue"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="py-12 text-center text-slate-400 space-y-3">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
-                <p className="text-xs font-semibold">Loading pending vacancies from backend...</p>
-              </div>
-            ) : filteredJobs.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 space-y-3 bg-slate-800/30 rounded-2xl border border-dashed border-slate-800">
-                <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400" />
-                <h4 className="text-sm font-bold text-white">All Caught Up!</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  No vacancies currently pending review. Click "Run AI Discovery Agent" above to fetch fresh openings from target companies.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredJobs.map((job) => {
-                  const compName = job.company?.name || 'Target Employer';
-                  const trustScore = job.trustScore || 95;
-                  const sourceLabel = job.source || 'Official ATS';
-
-                  return (
-                    <div
-                      key={job.id}
-                      className="p-5 rounded-2xl bg-[#1c1c22] border border-slate-800 hover:border-slate-700 transition flex flex-col lg:flex-row lg:items-center justify-between gap-5 shadow-sm"
-                    >
-                      {/* Left Column: Job Details & Authenticity Badges */}
-                      <div className="space-y-2.5 max-w-2xl">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-white text-base">{job.title}</h4>
-                          
-                          {/* Employer Authenticity Badge */}
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 flex items-center gap-1">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                            <span>Authenticated Company</span>
-                          </span>
-
-                          {/* ATS Feed Badge */}
-                          <span className="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 text-[11px] font-bold border border-purple-500/20">
-                            {sourceLabel}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-                          <span className="font-bold text-slate-200">🏢 {compName}</span>
-                          <span>•</span>
-                          <span>📍 {job.location || 'Remote'}</span>
-                          <span>•</span>
-                          <span>💼 {job.employmentType || 'Full-time'}</span>
-                          <span>•</span>
-                          <span className="text-emerald-400 font-semibold">
-                            Direct Apply URL: <span className="font-mono text-[10px] text-slate-400">{job.applyUrl ? (job.applyUrl.substring(0, 45) + '...') : 'N/A'}</span>
-                          </span>
-                        </div>
-
-                        {/* Dynamic Trust Signals & Deduction Diagnostics */}
-                        <div className="flex items-center gap-2 flex-wrap pt-1">
-                          {job.evidence && job.evidence.length > 0 ? (
-                            job.evidence.map((signal, idx) => {
-                              const isWarning = signal.startsWith('⚠') || signal.includes('(-') || signal.includes('Mismatch') || signal.includes('Missing');
-                              return (
-                                <span
-                                  key={idx}
-                                  className={`px-2.5 py-1 rounded-md text-[10px] font-semibold border ${
-                                    isWarning
-                                      ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 flex items-center gap-1'
-                                      : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                                  }`}
-                                >
-                                  {signal}
-                                </span>
-                              );
-                            })
-                          ) : (
-                            <>
-                              <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                                ✓ Direct ATS Application Form
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                                ✓ Verified Employer Domain
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-700">
-                                ✓ Active Live Vacancy
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Right Column: Score & Action Permission Buttons */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-shrink-0 border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-800">
-                        {/* Trust Score Pill */}
-                        <div className="flex sm:flex-col items-center justify-between sm:justify-center px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center">
-                          <span className="text-[10px] uppercase font-bold text-emerald-500">Trust Score</span>
-                          <span className="text-base font-black">{trustScore}%</span>
-                        </div>
-
-                        {/* Test Direct Apply Link Button */}
-                        {job.applyUrl && (
-                          <a
-                            href={job.applyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-slate-700"
-                            title="Test direct official application page in new tab"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Test Apply Link</span>
-                          </a>
-                        )}
-
-                        {/* Permission: APPROVE BUTTON */}
-                        <button
-                          onClick={() => handleApproveVacancy(job)}
-                          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Approve & Publish Live</span>
-                        </button>
-
-                        {/* Permission: REJECT BUTTON */}
-                        <button
-                          onClick={() => handleRejectVacancy(job.id, job.title)}
-                          className="px-3 py-2.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-bold transition flex items-center justify-center gap-1 border border-rose-800/40 active:scale-95"
-                          title="Reject and delete this posting"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                          <span>Reject</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* EDIT & GRANT PERMISSION MODAL */}
+      {editingJob && (
+        <EditAndGrantPermissionModal
+          job={editingJob}
+          onClose={() => setEditingJob(null)}
+          onPermissionGranted={(updatedJob) => {
+            setPendingJobs(prev => prev.filter(j => j.id !== updatedJob.id));
+            setActionNotice({
+              type: 'success',
+              msg: `Permission Granted & Details Updated: "${updatedJob.title}" is published live to the public site!`
+            });
+            fetchPendingJobs();
+            setTimeout(() => setActionNotice(null), 4500);
+          }}
+        />
       )}
 
-      {/* APPLICANT & RESUME INSPECTOR MODAL */}
+      {/* APPLICANT RESUME INSPECTION MODAL */}
       {selectedApplication && (
         <ApplicantResumeModal
           application={selectedApplication}

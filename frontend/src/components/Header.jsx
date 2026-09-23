@@ -1,5 +1,5 @@
 import React from 'react';
-import { Anchor, Code2, PlusCircle, LogIn, LogOut, User, Sparkles, Activity } from 'lucide-react';
+import { Anchor, Code2, PlusCircle, LogIn, LogOut, User, Sparkles, Activity, Briefcase } from 'lucide-react';
 
 export default function Header({
   activeTab,
@@ -50,16 +50,6 @@ export default function Header({
           >
             Resume AI
           </button>
-          <button
-            onClick={() => setActiveTab('admin-panel')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-              activeTab === 'admin-panel'
-                ? 'bg-yellow-400 text-gray-950 shadow-sm'
-                : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
-            }`}
-          >
-            Admin Panel
-          </button>
         </nav>
 
         {/* Right Section: Backend Health, Login & Source Code Button */}
@@ -74,16 +64,39 @@ export default function Header({
 
           {/* Login or User Avatar */}
           {currentUser ? (
-            <div className="flex items-center gap-2.5 bg-[#222228] pl-2 pr-3 py-1 rounded-full border border-gray-800">
+            <div 
+              onClick={() => {
+                if (currentUser.role === 'ROLE_EMPLOYEE' || currentUser.role === 'ROLE_ADMIN') {
+                  setActiveTab('employee-panel');
+                }
+              }}
+              className={`flex items-center gap-2.5 bg-[#222228] pl-2 pr-3 py-1 rounded-full border border-gray-800 ${
+                (currentUser.role === 'ROLE_EMPLOYEE' || currentUser.role === 'ROLE_ADMIN') 
+                  ? 'cursor-pointer hover:border-yellow-400/60 hover:bg-gray-800/80 transition' 
+                  : ''
+              }`}
+              title={(currentUser.role === 'ROLE_EMPLOYEE' || currentUser.role === 'ROLE_ADMIN') ? 'Click to open your Workspace' : undefined}
+            >
               <img
                 src={currentUser.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120"}
                 alt={currentUser.name}
                 className="w-7 h-7 rounded-full object-cover border border-yellow-400"
               />
-              <span className="text-xs font-bold text-white hidden sm:inline">{currentUser.name}</span>
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-xs font-bold text-white leading-none">{currentUser.name}</span>
+                <span className="text-[10px] font-semibold text-yellow-400/90 leading-tight mt-0.5 flex items-center gap-1">
+                  {currentUser.role === 'ROLE_EMPLOYEE' ? 'Employee Portal' : currentUser.role === 'ROLE_ADMIN' ? 'Administrator' : 'Candidate'}
+                  {(currentUser.role === 'ROLE_EMPLOYEE' || currentUser.role === 'ROLE_ADMIN') && (
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                  )}
+                </span>
+              </div>
               <button
-                onClick={onLogout}
-                className="p-1 text-gray-400 hover:text-red-400 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLogout();
+                }}
+                className="p-1 text-gray-400 hover:text-red-400 transition ml-1"
                 title="Log Out"
               >
                 <LogOut className="w-3.5 h-3.5" />

@@ -14,8 +14,9 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { formatSignal } from './JobTable';
+import { Send } from 'lucide-react';
 
-export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
+export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply }) {
   if (!job) return null;
 
   const score = job.score || job.trustScore || 90;
@@ -97,14 +98,30 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
               </div>
             </div>
 
-            <a
-              href={job.applyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              Apply Directly <ExternalLink className="w-4 h-4" />
-            </a>
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {onApply && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onApply(job);
+                  }}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center justify-center gap-2 whitespace-nowrap active:scale-95"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  Quick Apply with Resume
+                </button>
+              )}
+              {job.applyUrl && (
+                <a
+                  href={job.applyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  Employer Site <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Metadata Badges Row */}
@@ -195,14 +212,30 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved }) {
             {isSaved ? '✓ Saved in Bookmarks' : 'Bookmark Job'}
           </button>
 
-          <a
-            href={job.applyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center gap-2"
-          >
-            Apply Directly <ExternalLink className="w-4 h-4" />
-          </a>
+          <div className="flex items-center gap-2">
+            {job.applyUrl && (
+              <a
+                href={job.applyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center gap-1.5"
+              >
+                Employer Portal <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
+            {onApply && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onApply(job);
+                }}
+                className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center gap-2 active:scale-95"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Quick Apply with Resume
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

@@ -7,7 +7,8 @@ import JobTable from './components/JobTable';
 import JobDetailsModal from './components/JobDetailsModal';
 import ResumeAnalyzerSection from './components/ResumeAnalyzerSection';
 import LoginView from './components/LoginView';
-import AdminControlSection from './components/AdminControlSection';
+import EmployeeControlSection from './components/EmployeeControlSection';
+import ApplyJobModal from './components/ApplyJobModal';
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -27,13 +28,14 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState(() => {
-    return currentUser?.role === 'ROLE_ADMIN' ? 'admin-panel' : 'dashboard-overview';
+    return (currentUser?.role === 'ROLE_EMPLOYEE' || currentUser?.role === 'ROLE_ADMIN') ? 'employee-panel' : 'dashboard-overview';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [healthStatus, setHealthStatus] = useState({ loading: true, data: null, error: null });
   const [liveJobs, setLiveJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [applyingJob, setApplyingJob] = useState(null);
   const [showPostJobModal, setShowPostJobModal] = useState(false);
 
   // Job Post Form State
@@ -182,8 +184,8 @@ export default function App() {
 
   const handleLoginSuccess = (userPayload) => {
     setCurrentUser(userPayload);
-    if (userPayload?.role === 'ROLE_ADMIN') {
-      setActiveTab('admin-panel');
+    if (userPayload?.role === 'ROLE_EMPLOYEE' || userPayload?.role === 'ROLE_ADMIN') {
+      setActiveTab('employee-panel');
     } else {
       setActiveTab('dashboard-overview');
     }
@@ -416,13 +418,13 @@ export default function App() {
             onSelectJob={(job) => setSelectedJob(job)} 
           />
         </div>
-      ) : activeTab === 'admin-panel' ? (
+      ) : (activeTab === 'employee-panel' || activeTab === 'admin-panel') ? (
         <div className="max-w-7xl mx-auto py-8 px-4">
-          <AdminControlSection 
+          <EmployeeControlSection 
             liveJobs={jobsToDisplay} 
             currentUser={currentUser} 
             onPostJobClick={() => setShowPostJobModal(true)}
-            onLoginAsAdmin={(adminUser) => setCurrentUser(adminUser)}
+            onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
           />
         </div>
       ) : (
@@ -479,6 +481,7 @@ export default function App() {
               jobs={filteredJobs} 
               searchTerm={searchTerm} 
               onSelectJob={(job) => setSelectedJob(job)}
+              onApplyJob={(job) => setApplyingJob(job)}
             />
           </section>
         </main>
@@ -489,6 +492,17 @@ export default function App() {
         <JobDetailsModal 
           job={selectedJob} 
           onClose={() => setSelectedJob(null)} 
+          onApply={(job) => setApplyingJob(job)}
+        />
+      )}
+
+      {/* APPLY JOB MODAL */}
+      {applyingJob && (
+        <ApplyJobModal
+          job={applyingJob}
+          currentUser={currentUser}
+          onClose={() => setApplyingJob(null)}
+          onApplicationSubmitted={() => {}}
         />
       )}
 

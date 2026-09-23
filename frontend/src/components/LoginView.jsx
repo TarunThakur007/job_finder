@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
+  Shield,
   Mail, 
   Lock, 
   User, 
@@ -10,11 +11,13 @@ import {
   EyeOff, 
   Anchor,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Briefcase
 } from 'lucide-react';
 
 export default function LoginView({ onLoginSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [loginType, setLoginType] = useState('user'); // 'user' | 'employee' | 'admin'
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
@@ -41,6 +44,21 @@ export default function LoginView({ onLoginSuccess }) {
   };
 
   const strength = getPasswordStrength(password);
+
+  const handlePanelSelection = (type) => {
+    setLoginType(type);
+    setError(null);
+    if (type === 'user') {
+      setEmail('cooper.curtis@example.com');
+      setFullName('Cooper Curtis');
+    } else if (type === 'employee') {
+      setEmail('sarah.jenkins@google.com');
+      setFullName('Sarah Jenkins');
+    } else if (type === 'admin') {
+      setEmail('alex.vance@jobproof.io');
+      setFullName('Alex Vance');
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -69,12 +87,34 @@ export default function LoginView({ onLoginSuccess }) {
 
     setTimeout(() => {
       setLoading(false);
+      let userRole = 'ROLE_USER';
+      let userName = isSignUp ? fullName : (email.includes('cooper') ? 'Cooper Curtis' : email.split('@')[0]);
+      let userTitle = 'Senior Full Stack Engineer';
+      let userAvatar = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120';
+      let userCompany = null;
+
+      if (loginType === 'employee') {
+        userRole = 'ROLE_EMPLOYEE';
+        userName = isSignUp ? fullName : (email.includes('sarah') ? 'Sarah Jenkins' : email.split('@')[0]);
+        userTitle = 'Company Recruiter & Hiring Partner';
+        userAvatar = 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120';
+        userCompany = 'Google';
+      } else if (loginType === 'admin') {
+        userRole = 'ROLE_ADMIN';
+        userName = isSignUp ? fullName : (email.includes('alex') ? 'Alex Vance' : 'System Administrator');
+        userTitle = 'Head of Platform & Trust Governance';
+        userAvatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120';
+        userCompany = 'JobProof Core';
+      }
+
       const userPayload = {
-        name: isSignUp ? fullName : (email.includes('cooper') ? 'Cooper Curtis' : email.split('@')[0]),
+        name: userName,
         email: email,
-        role: email.toLowerCase().includes('admin') || email.toLowerCase().includes('sarah') ? 'ROLE_ADMIN' : 'ROLE_USER',
-        title: 'Software Developer',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
+        role: userRole,
+        title: userTitle,
+        avatar: userAvatar,
+        company: userCompany,
+        panel: loginType,
         loggedInAt: new Date().toLocaleTimeString()
       };
       
@@ -83,40 +123,59 @@ export default function LoginView({ onLoginSuccess }) {
       } catch (e) {}
 
       onLoginSuccess(userPayload);
-    }, 500);
+    }, 450);
   };
 
   const handleQuickDemoLogin = (type) => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      const payload = type === 'candidate' ? {
-        name: 'Cooper Curtis',
-        email: 'cooper.curtis@jobproof.io',
-        role: 'ROLE_USER',
-        title: 'Senior Full Stack Engineer',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
-        loggedInAt: new Date().toLocaleTimeString()
-      } : {
-        name: 'Sarah Jenkins (Admin)',
-        email: 'sarah.admin@jobproof.io',
-        role: 'ROLE_ADMIN',
-        title: 'System Administrator & Recruiter',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120',
-        loggedInAt: new Date().toLocaleTimeString()
-      };
+      let payload;
+      if (type === 'user') {
+        payload = {
+          name: 'Cooper Curtis',
+          email: 'cooper.curtis@jobproof.io',
+          role: 'ROLE_USER',
+          title: 'Senior Full Stack Engineer',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
+          panel: 'user',
+          loggedInAt: new Date().toLocaleTimeString()
+        };
+      } else if (type === 'employee') {
+        payload = {
+          name: 'Sarah Jenkins',
+          email: 'sarah.jenkins@google.com',
+          role: 'ROLE_EMPLOYEE',
+          title: 'Company Recruiter & Hiring Partner',
+          company: 'Google',
+          avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120',
+          panel: 'employee',
+          loggedInAt: new Date().toLocaleTimeString()
+        };
+      } else {
+        payload = {
+          name: 'Alex Vance',
+          email: 'alex.vance@jobproof.io',
+          role: 'ROLE_ADMIN',
+          title: 'Head of Platform & Trust Governance',
+          company: 'JobProof Core',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=120',
+          panel: 'admin',
+          loggedInAt: new Date().toLocaleTimeString()
+        };
+      }
 
       try {
         localStorage.setItem('jobproof_user', JSON.stringify(payload));
       } catch (e) {}
 
       onLoginSuccess(payload);
-    }, 400);
+    }, 350);
   };
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center p-4 sm:p-6 animate-fadeIn bg-[#18181c]">
-      <div className="w-full max-w-5xl bg-[#222228] rounded-3xl overflow-hidden border border-yellow-500/30 shadow-2xl grid grid-cols-1 lg:grid-cols-2">
+      <div className="w-full max-w-5xl bg-[#222228] rounded-3xl border border-yellow-500/30 shadow-2xl grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
         
         {/* Left Side: Branding Banner */}
         <div className="bg-gradient-to-br from-[#18181c] via-[#222228] to-[#141417] p-8 sm:p-12 text-white flex flex-col justify-between relative overflow-hidden border-r border-gray-800">
@@ -143,7 +202,7 @@ export default function LoginView({ onLoginSuccess }) {
                 Find verified jobs with <span className="text-yellow-400">transparent trust scores</span>.
               </h2>
               <p className="text-sm text-gray-400 leading-relaxed">
-                Log in or register to access verified employer listings, real-time trust scores, AI ATS resume parser, and direct application tracking.
+                Choose your role panel: explore verified jobs as a Candidate, review & grant permissions as an Employee, or govern the platform as an Admin.
               </p>
             </div>
 
@@ -153,13 +212,19 @@ export default function LoginView({ onLoginSuccess }) {
                 <div className="w-6 h-6 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 flex items-center justify-center flex-shrink-0">
                   <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
-                <span>Multi-point Corporate Domain & ATS Verification</span>
+                <span>Three Distinct Access Portals (User, Employee, Admin)</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-300 font-medium">
+                <div className="w-6 h-6 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="w-3.5 h-3.5" />
+                </div>
+                <span>Employee AI Review & Permission Granting Hub</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-300 font-medium">
                 <div className="w-6 h-6 rounded-full bg-yellow-400/20 border border-yellow-400/40 text-yellow-400 flex items-center justify-center flex-shrink-0">
                   <FileText className="w-3.5 h-3.5" />
                 </div>
-                <span>AI ATS Resume Parser & Skill Gap Detection</span>
+                <span>Candidate Resume ATS Analyzer & Direct Application</span>
               </div>
             </div>
           </div>
@@ -167,11 +232,11 @@ export default function LoginView({ onLoginSuccess }) {
           <div className="relative z-10 pt-8 mt-8 border-t border-gray-800 flex items-center gap-3">
             <div className="flex -space-x-2">
               <img className="w-8 h-8 rounded-full border-2 border-[#18181c] object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=80" alt="User" />
-              <img className="w-8 h-8 rounded-full border-2 border-[#18181c] object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=80" alt="User" />
-              <img className="w-8 h-8 rounded-full border-2 border-[#18181c] object-cover" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=80" alt="User" />
+              <img className="w-8 h-8 rounded-full border-2 border-[#18181c] object-cover" src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=80" alt="Employee" />
+              <img className="w-8 h-8 rounded-full border-2 border-[#18181c] object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=80" alt="Admin" />
             </div>
             <p className="text-xs text-gray-400">
-              Joined by <span className="font-bold text-white">25,000+ engineers</span> & verified employers.
+              Trusted by <span className="font-bold text-white">25,000+ engineers</span> & leading employers.
             </p>
           </div>
         </div>
@@ -179,20 +244,81 @@ export default function LoginView({ onLoginSuccess }) {
         {/* Right Side: Login / Register Form */}
         <div className="p-8 sm:p-12 flex flex-col justify-between bg-[#222228]">
           <div>
-            {/* Header Tabs */}
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-800">
+            {/* 3 Panel Option Selector */}
+            <div className="mb-2">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Select Panel
+              </label>
+              <div className="grid grid-cols-3 gap-2 p-1.5 bg-[#18181c] rounded-2xl border border-gray-800 mb-6">
+                <button
+                  type="button"
+                  onClick={() => handlePanelSelection('user')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    loginType === 'user'
+                      ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>User</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePanelSelection('employee')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    loginType === 'employee'
+                      ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Employee</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handlePanelSelection('admin')}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    loginType === 'admin'
+                      ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/40'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Admin</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Header Description */}
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-gray-800">
               <div>
-                <h3 className="text-2xl font-extrabold text-white">
-                  {isSignUp ? 'Create Secure Account' : 'Welcome Back'}
+                <h3 className="text-xl sm:text-2xl font-extrabold text-white">
+                  {isSignUp 
+                    ? (loginType === 'employee' 
+                        ? 'Create Employee Account' 
+                        : loginType === 'admin' 
+                        ? 'Register Admin Access' 
+                        : 'Create Candidate Account') 
+                    : (loginType === 'employee' 
+                        ? 'Employee Panel Login' 
+                        : loginType === 'admin' 
+                        ? 'Admin Console Login' 
+                        : 'User Panel Login')}
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  {isSignUp ? 'Register with 8+ char mixed-key password' : 'Log in to explore jobs and analyze your resume'}
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {loginType === 'employee'
+                    ? 'Review AI vacancies, edit details, grant permissions to publish live, and view applicants'
+                    : loginType === 'admin'
+                    ? 'Platform administration, security audit, and employer moderation governance'
+                    : 'Search verified jobs, apply directly, and analyze your resume with AI'}
                 </p>
               </div>
 
               <button
                 onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
-                className="text-xs font-bold text-yellow-400 hover:text-yellow-300 underline underline-offset-4"
+                className="text-xs font-bold text-yellow-400 hover:text-yellow-300 underline underline-offset-4 whitespace-nowrap ml-2"
               >
                 {isSignUp ? 'Sign In' : 'Register'}
               </button>
@@ -325,22 +451,32 @@ export default function LoginView({ onLoginSuccess }) {
             {/* Quick Demo Login Buttons */}
             <div className="mt-8 pt-6 border-t border-gray-800 space-y-3">
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">
-                Quick Demo Access
+                Instant Demo Access (Choose Panel)
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => handleQuickDemoLogin('candidate')}
-                  className="py-2.5 px-3 rounded-xl bg-[#18181c] hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-300 hover:text-white transition flex items-center justify-center gap-1.5"
+                  onClick={() => handleQuickDemoLogin('user')}
+                  className="py-2.5 px-2 rounded-xl bg-[#18181c] hover:bg-gray-800 border border-gray-800 text-[11px] font-bold text-gray-300 hover:text-white transition flex flex-col sm:flex-row items-center justify-center gap-1.5"
                 >
-                  <User className="w-3.5 h-3.5 text-yellow-400" /> Candidate Demo
+                  <User className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>User Demo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemoLogin('employee')}
+                  className="py-2.5 px-2 rounded-xl bg-[#18181c] hover:bg-gray-800 border border-yellow-500/30 text-[11px] font-bold text-yellow-400 hover:text-yellow-300 transition flex flex-col sm:flex-row items-center justify-center gap-1.5"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>Employee Demo</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleQuickDemoLogin('admin')}
-                  className="py-2.5 px-3 rounded-xl bg-[#18181c] hover:bg-gray-800 border border-gray-800 text-xs font-bold text-gray-300 hover:text-white transition flex items-center justify-center gap-1.5"
+                  className="py-2.5 px-2 rounded-xl bg-[#18181c] hover:bg-gray-800 border border-purple-500/30 text-[11px] font-bold text-purple-300 hover:text-purple-200 transition flex flex-col sm:flex-row items-center justify-center gap-1.5"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" /> Admin Console Demo
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Admin Demo</span>
                 </button>
               </div>
             </div>

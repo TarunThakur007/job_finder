@@ -32,7 +32,7 @@ export function formatSignal(signal) {
   return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Direct Match';
 }
 
-export default function JobTable({ jobs, searchTerm, onSelectJob }) {
+export default function JobTable({ jobs, searchTerm, onSelectJob, onApplyJob }) {
   const filteredJobs = jobs.filter(job => {
     const compName = typeof job.company === 'object' ? job.company.name : job.company;
     return (
@@ -105,14 +105,23 @@ export default function JobTable({ jobs, searchTerm, onSelectJob }) {
                   <span className="font-bold text-white">{score}%</span>
                 </div>
 
-                <a
-                  href={job.applyUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
-                >
-                  Apply Now <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
-                </a>
+                {onApplyJob ? (
+                  <button
+                    onClick={() => onApplyJob(job)}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                  >
+                    Apply Now <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                ) : (
+                  <a
+                    href={job.applyUrl || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition-transform active:scale-95 shadow-lg shadow-yellow-500/20"
+                  >
+                    Apply Now <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                  </a>
+                )}
               </div>
             </div>
 
