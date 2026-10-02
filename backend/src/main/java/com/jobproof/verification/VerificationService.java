@@ -19,11 +19,14 @@ public class VerificationService {
 
     private final VerificationResultRepository verificationResultRepository;
     private final TargetCompanyConfig targetCompanyConfig;
+    private final com.jobproof.verification.company.CompanyVerificationService companyVerificationService;
 
     public VerificationService(VerificationResultRepository verificationResultRepository,
-                               TargetCompanyConfig targetCompanyConfig) {
+                               TargetCompanyConfig targetCompanyConfig,
+                               com.jobproof.verification.company.CompanyVerificationService companyVerificationService) {
         this.verificationResultRepository = verificationResultRepository;
         this.targetCompanyConfig = targetCompanyConfig;
+        this.companyVerificationService = companyVerificationService;
     }
 
     @Transactional
@@ -112,7 +115,20 @@ public class VerificationService {
             score += 10;
             reasons.add("✓ Authenticated employer in official corporate target registry (+10 pts)");
         } else {
-            reasons.add("⚠ Unregistered Employer: Not present in authenticated target company registry (-10 pts)");
+            com.jobproof.dto.CompanyVerificationDTO cv = companyVerificationService.verifyCompany(company.getName());
+            if (cv.isVerified()) {
+                score += 10;
+                String providerList = cv.getSources() != null && !cv.getSources().isEmpty() ? String.join(" & ", cv.getSources()) : "Clearbit/Brandfetch";
+                reasons.add("✓ Authenticated employer verified by " + providerList + 
+                        (cv.getVerifiedDomain() != null ? " ('" + cv.getVerifiedDomain() + "')" : "") + " (+10 pts)");
+                if (company.getWebsite() == null || company.getWebsite().isBlank() || company.getWebsite().contains("employer.com")) {
+                    if (cv.getVerifiedDomain() != null) {
+                        company.setWebsite("https://" + cv.getVerifiedDomain());
+                    }
+                }
+            } else {
+                reasons.add("⚠ Unregistered Employer: Could not verify domain via Clearbit or Brandfetch (-10 pts)");
+            }
         }
 
         if (company.getWebsite() != null && company.getWebsite().startsWith("https://")) {

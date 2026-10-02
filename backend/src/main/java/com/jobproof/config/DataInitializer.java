@@ -27,17 +27,20 @@ public class DataInitializer implements CommandLineRunner {
     private final JobDiscoveryAgent jobDiscoveryAgent;
     private final UserRepository userRepository;
     private final JobApplicationRepository jobApplicationRepository;
+    private final com.jobproof.repository.UserExperienceRepository userExperienceRepository;
 
     public DataInitializer(JobRepository jobRepository,
                            CompanyRepository companyRepository,
                            JobDiscoveryAgent jobDiscoveryAgent,
                            UserRepository userRepository,
-                           JobApplicationRepository jobApplicationRepository) {
+                           JobApplicationRepository jobApplicationRepository,
+                           com.jobproof.repository.UserExperienceRepository userExperienceRepository) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.jobDiscoveryAgent = jobDiscoveryAgent;
         this.userRepository = userRepository;
         this.jobApplicationRepository = jobApplicationRepository;
+        this.userExperienceRepository = userExperienceRepository;
     }
 
     @Override
@@ -68,26 +71,31 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         // Seed default Admin & Candidate users if not present
-        if (userRepository.count() == 0) {
-            log.info("[JobProof DataInitializer] Seeding default administrator and candidates...");
+        if (!userRepository.existsByEmail("admin@jobproof.io")) {
+            log.info("[JobProof DataInitializer] Seeding master platform administrator admin@jobproof.io...");
             userRepository.save(User.builder()
-                    .name("Sarah Jenkins (Admin)")
-                    .email("sarah.admin@jobproof.io")
-                    .password("$2a$10$defaultEncryptedPassword")
+                    .name("Platform Admin Author")
+                    .email("admin@jobproof.io")
+                    .password("Admin@123")
                     .role(User.Role.ROLE_ADMIN)
+                    .headline("Chief Platform Administrator")
+                    .company("JobProof Core")
                     .build());
+        }
 
+        if (userRepository.count() <= 1) {
+            log.info("[JobProof DataInitializer] Seeding candidate users...");
             userRepository.save(User.builder()
                     .name("Cooper Curtis")
                     .email("cooper.curtis@jobproof.io")
-                    .password("$2a$10$defaultEncryptedPassword")
+                    .password("Password@123")
                     .role(User.Role.ROLE_USER)
                     .build());
 
             userRepository.save(User.builder()
                     .name("Alex Morgan")
                     .email("alex.morgan@example.com")
-                    .password("$2a$10$defaultEncryptedPassword")
+                    .password("Password@123")
                     .role(User.Role.ROLE_USER)
                     .build());
         }
@@ -167,6 +175,54 @@ public class DataInitializer implements CommandLineRunner {
                         .adminNotes("Under review by engineering manager.")
                         .build());
             }
+        }
+
+        // Seed initial candidate interview & work experiences
+        if (userExperienceRepository.count() == 0) {
+            log.info("[JobProof DataInitializer] Seeding realistic community interview & work experiences...");
+            userExperienceRepository.save(com.jobproof.entity.UserExperience.builder()
+                    .userName("Cooper Curtis")
+                    .userEmail("cooper.curtis@jobproof.io")
+                    .companyName("Stripe")
+                    .jobTitle("Senior Backend Engineer")
+                    .experienceType("INTERVIEW_EXPERIENCE")
+                    .employmentType("FULL_TIME")
+                    .workMode("HYBRID")
+                    .location("San Francisco, CA (Hybrid)")
+                    .yearsOfExperience(5.5)
+                    .rating(5)
+                    .difficultyLevel("HARD")
+                    .interviewRounds(4)
+                    .questionsAsked("1. Design an idempotent payment webhook delivery queue.\n2. Concurrency handling in PostgreSQL using pessimistic vs optimistic locks.\n3. Live coding: Rate limiter using token bucket algorithm in Java.")
+                    .experienceStory("The interview process at Stripe was exceptionally thorough yet collaborative. Round 1 was an architecture deep dive, followed by 2 live coding sessions that simulated real Stripe engineering workflows. The interviewers were very supportive and guided discussions naturally.")
+                    .tipsAndAdvice("Focus deeply on distributed systems, idempotency keys, database transaction isolation levels, and writing clean, testable code.")
+                    .offerStatus("OFFERED_ACCEPTED")
+                    .anonymous(false)
+                    .upvotes(18)
+                    .status("APPROVED")
+                    .build());
+
+            userExperienceRepository.save(com.jobproof.entity.UserExperience.builder()
+                    .userName("Alex Morgan")
+                    .userEmail("alex.morgan@example.com")
+                    .companyName("Datadog")
+                    .jobTitle("Cloud Infrastructure & SRE Engineer")
+                    .experienceType("INTERVIEW_EXPERIENCE")
+                    .employmentType("FULL_TIME")
+                    .workMode("REMOTE")
+                    .location("Remote, US")
+                    .yearsOfExperience(4.5)
+                    .rating(4)
+                    .difficultyLevel("MEDIUM")
+                    .interviewRounds(3)
+                    .questionsAsked("1. How do you troubleshoot high tail latency in Kubernetes pods?\n2. Kafka partition rebalancing strategies.\n3. Prometheus metrics alerting best practices.")
+                    .experienceStory("Very transparent communication from the recruitment team. The technical screening tested practical troubleshooting on Linux systems rather than abstract algorithmic puzzles.")
+                    .tipsAndAdvice("Be ready to read log traces, explain eBPF or container networking basics, and highlight hands-on incident response experience.")
+                    .offerStatus("OFFERED_ACCEPTED")
+                    .anonymous(false)
+                    .upvotes(12)
+                    .status("APPROVED")
+                    .build());
         }
     }
 }

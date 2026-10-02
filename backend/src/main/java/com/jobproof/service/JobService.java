@@ -36,6 +36,7 @@ public class JobService {
     @Transactional(readOnly = true)
     public List<JobDTO> getAllJobs() {
         return jobRepository.findAll().stream()
+                .filter(job -> job.getVerificationStatus() != Job.VerificationStatus.CLOSED)
                 .map(jobMapper::toJobDTO)
                 .collect(Collectors.toList());
     }
@@ -50,6 +51,7 @@ public class JobService {
     @Transactional(readOnly = true)
     public List<JobDTO> getLatestJobs() {
         return jobRepository.findTop10ByOrderByPostedDateDesc().stream()
+                .filter(job -> job.getVerificationStatus() != Job.VerificationStatus.CLOSED)
                 .map(jobMapper::toJobDTO)
                 .collect(Collectors.toList());
     }
@@ -58,6 +60,7 @@ public class JobService {
     public List<JobDTO> getVerifiedJobs(Integer minScore) {
         int scoreThreshold = minScore != null ? minScore : 80;
         return jobRepository.findByTrustScoreGreaterThanEqual(scoreThreshold).stream()
+                .filter(job -> job.getVerificationStatus() != Job.VerificationStatus.CLOSED)
                 .map(jobMapper::toJobDTO)
                 .collect(Collectors.toList());
     }
@@ -67,8 +70,10 @@ public class JobService {
         if (keyword == null || keyword.isBlank()) {
             return getAllJobs();
         }
+        // Search jobs matching keyword across title, company, role, or location
         return jobRepository.searchJobsByKeyword(keyword.trim()).stream()
-                .map(jobMapper::toJobDTO)
+                .filter(job -> job.getVerificationStatus() != Job.VerificationStatus.CLOSED)
+                .map(job -> jobMapper.toJobDTO(job))
                 .collect(Collectors.toList());
     }
 

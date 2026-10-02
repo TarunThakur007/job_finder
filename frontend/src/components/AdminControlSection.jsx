@@ -260,7 +260,7 @@ export default function AdminControlSection({ liveJobs = [], currentUser, onPost
       email: 'sarah.admin@jobproof.io',
       role: 'ROLE_ADMIN',
       title: 'System Administrator & Recruiter',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120'
+      avatar: '👤'
     };
     try {
       localStorage.setItem('jobproof_user', JSON.stringify(adminUser));

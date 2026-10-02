@@ -14,11 +14,9 @@ export default function UserProfileSkillsCard() {
       {/* Top User Info & Action Button */}
       <div className="flex items-center justify-between gap-3 pb-4">
         <div className="flex items-center gap-3">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120"
-            alt="Cooper Curtis"
-            className="w-12 h-12 rounded-xl object-cover border-2 border-slate-100 dark:border-slate-700 shadow-xs"
-          />
+          <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-slate-700 flex items-center justify-center text-2xl shadow-xs select-none">
+            👤
+          </div>
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">Cooper Curtis</h3>
             <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">Product Designer</p>

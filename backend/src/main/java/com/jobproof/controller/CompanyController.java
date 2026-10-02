@@ -13,9 +13,12 @@ import java.util.List;
 public class CompanyController {
 
     private final CompanyService companyService;
+    private final com.jobproof.verification.company.CompanyVerificationService companyVerificationService;
 
-    public CompanyController(CompanyService companyService) {
+    public CompanyController(CompanyService companyService,
+                             com.jobproof.verification.company.CompanyVerificationService companyVerificationService) {
         this.companyService = companyService;
+        this.companyVerificationService = companyVerificationService;
     }
 
     @GetMapping
@@ -26,5 +29,13 @@ public class CompanyController {
     @GetMapping("/{id}")
     public ResponseEntity<CompanyDTO> getCompanyById(@PathVariable Long id) {
         return ResponseEntity.ok(companyService.getCompanyById(id));
+    }
+
+    /**
+     * Real-time verification of any company using Clearbit Autocomplete and Brandfetch APIs
+     */
+    @GetMapping("/verify")
+    public ResponseEntity<com.jobproof.dto.CompanyVerificationDTO> verifyCompany(@RequestParam String name) {
+        return ResponseEntity.ok(companyVerificationService.verifyCompany(name));
     }
 }

@@ -11,12 +11,13 @@ import {
   Sparkles, 
   Clock, 
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUpRight,
+  Send
 } from 'lucide-react';
 import { formatSignal } from './JobTable';
-import { Send } from 'lucide-react';
 
-export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply }) {
+export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply, currentUser, onRequireRegistration }) {
   if (!job) return null;
 
   const score = job.score || job.trustScore || 90;
@@ -37,6 +38,28 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
     'Posting active & fresh'
   ];
   const evidenceList = Array.from(new Set(rawEvidence.map(formatSignal).filter(Boolean)));
+
+  const companyName = typeof job.company === 'object' ? job.company.name : job.company;
+
+  const handleApplyClick = () => {
+    onClose();
+    if (currentUser?.isDemo) {
+      onRequireRegistration && onRequireRegistration(`Registration is required to apply for "${job.title}" at ${companyName}. Please create your candidate account.`);
+      return;
+    }
+    if (onApply) onApply(job);
+  };
+
+  const handleEmployerSiteClick = () => {
+    if (currentUser?.isDemo) {
+      onClose();
+      onRequireRegistration && onRequireRegistration(`Registration is required to access official employer applications for "${job.title}". Please create your account.`);
+      return;
+    }
+    if (job.applyUrl) {
+      window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fadeIn">
@@ -101,25 +124,21 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               {onApply && (
                 <button
-                  onClick={() => {
-                    onClose();
-                    onApply(job);
-                  }}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center justify-center gap-2 whitespace-nowrap active:scale-95"
+                  onClick={handleApplyClick}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95"
                 >
-                  <Send className="w-3.5 h-3.5" />
-                  Quick Apply with Resume
+                  <span>Apply on Company Site</span>
+                  <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               )}
               {job.applyUrl && (
-                <a
-                  href={job.applyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
+                <button
+                  onClick={handleEmployerSiteClick}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-[#18181c] hover:bg-gray-800 text-gray-200 rounded-xl text-xs font-bold border border-gray-800 hover:border-yellow-500/30 transition flex items-center justify-center gap-1.5 whitespace-nowrap"
                 >
-                  Employer Site <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                  <span>Direct ATS Portal</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           </div>
@@ -229,10 +248,10 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
                   onClose();
                   onApply(job);
                 }}
-                className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center gap-2 active:scale-95"
+                className="px-6 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 rounded-xl text-xs font-black shadow-md shadow-yellow-500/20 transition flex items-center gap-1.5 active:scale-95"
               >
-                <Send className="w-3.5 h-3.5" />
-                Quick Apply with Resume
+                <span>Apply on Company Site</span>
+                <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             )}
           </div>

@@ -36,16 +36,16 @@ public class UserResume {
     @Column(name = "raw_extracted_text", columnDefinition = "TEXT")
     private String rawExtractedText;
 
-    @Column(name = "parsed_contact_info", columnDefinition = "JSONB")
+    @Column(name = "parsed_contact_info", columnDefinition = "TEXT")
     private String parsedContactInfo;
 
-    @Column(name = "parsed_skills", columnDefinition = "JSONB")
+    @Column(name = "parsed_skills", columnDefinition = "TEXT")
     private String parsedSkills;
 
-    @Column(name = "parsed_experience", columnDefinition = "JSONB")
+    @Column(name = "parsed_experience", columnDefinition = "TEXT")
     private String parsedExperience;
 
-    @Column(name = "parsed_education", columnDefinition = "JSONB")
+    @Column(name = "parsed_education", columnDefinition = "TEXT")
     private String parsedEducation;
 
     @Column(nullable = false)

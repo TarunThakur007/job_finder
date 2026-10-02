@@ -8,27 +8,51 @@ import JobDetailsModal from './components/JobDetailsModal';
 import ResumeAnalyzerSection from './components/ResumeAnalyzerSection';
 import LoginView from './components/LoginView';
 import EmployeeControlSection from './components/EmployeeControlSection';
+import TeamManagementPage from './components/TeamManagementPage';
 import ApplyJobModal from './components/ApplyJobModal';
+import ExperienceBoardSection from './components/ExperienceBoardSection';
+import ShareExperienceModal from './components/ShareExperienceModal';
 import { 
   ShieldCheck, 
   CheckCircle2, 
   Search,
   X,
-  Code2
+  Code2,
+  Filter,
+  Briefcase,
+  Globe,
+  Sparkles,
+  SlidersHorizontal,
+  ArrowUpDown,
+  RotateCcw,
+  ArrowUpRight,
+  GraduationCap
 } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('jobproof_user');
-      return saved ? JSON.parse(saved) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.avatar && parsed.avatar.startsWith('http')) {
+          parsed.avatar = '👤';
+        }
+        return parsed;
+      }
+      return null;
     } catch (e) {
       return null;
     }
   });
 
+  const [initialIsSignUp, setInitialIsSignUp] = useState(false);
+  const [authMessage, setAuthMessage] = useState(null);
+
   const [activeTab, setActiveTab] = useState(() => {
-    return (currentUser?.role === 'ROLE_EMPLOYEE' || currentUser?.role === 'ROLE_ADMIN') ? 'employee-panel' : 'dashboard-overview';
+    if (currentUser?.role === 'ROLE_ADMIN') return 'admin-panel';
+    if (currentUser?.role === 'ROLE_EMPLOYEE') return 'employee-panel';
+    return 'dashboard-overview';
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -37,6 +61,13 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [applyingJob, setApplyingJob] = useState(null);
   const [showPostJobModal, setShowPostJobModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  // Job Discovery Multi-Filter States
+  const [filterExperience, setFilterExperience] = useState('ALL'); // 'ALL' | 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD'
+  const [filterJobType, setFilterJobType] = useState('ALL'); // 'ALL' | 'FULLTIME' | 'CONTRACT' | 'PART_TIME' | 'INTERNSHIP'
+  const [filterRemoteOnly, setFilterRemoteOnly] = useState(false);
+  const [sortBy, setSortBy] = useState('TRUST'); // 'TRUST' | 'NEWEST'
 
   // Job Post Form State
   const [postingJob, setPostingJob] = useState(false);
@@ -81,6 +112,12 @@ export default function App() {
 
     fetchJobs();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'resume-analyzer' && currentUser?.isDemo) {
+      handleRequireRegistration("Registration is required to access the AI Resume Optimizer and ATS Scorecard. Please register your candidate account to unlock all features!");
+    }
+  }, [activeTab, currentUser]);
 
   const sampleJobs = [
     {
@@ -167,24 +204,88 @@ export default function App() {
 
   const jobsToDisplay = liveJobs.length > 0 ? liveJobs : sampleJobs;
 
-  // Filter jobs based on search term & category selection
+  // Filter jobs based on search term, category, experience, job type, and remote
   const filteredJobs = jobsToDisplay.filter((job) => {
     const compName = typeof job.company === 'object' ? job.company.name : job.company;
+    const title = (job.title || '').toLowerCase();
+    const location = (job.location || '').toLowerCase();
+    const role = (job.role || '').toLowerCase();
+    const expLevel = (job.experienceLevel || '').toLowerCase();
+    const empType = (job.employmentType || job.jobType || '').toLowerCase();
+
+    // 1. Keyword search (title, company, skills, location, role)
     const matchesSearch = !searchTerm || 
-      (job.title && job.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      title.includes(searchTerm.toLowerCase()) ||
       (compName && compName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      location.includes(searchTerm.toLowerCase()) ||
+      role.includes(searchTerm.toLowerCase()) ||
       (job.skills && Array.isArray(job.skills) && job.skills.some(s => s.toLowerCase().includes(searchTerm.toLowerCase())));
 
+    // 2. Category selection
     const matchesCategory = !selectedCategory || 
-      (job.role && job.role.toLowerCase().includes(selectedCategory.toLowerCase())) ||
-      (job.title && job.title.toLowerCase().includes(selectedCategory.toLowerCase()));
+      role.includes(selectedCategory.toLowerCase()) ||
+      title.includes(selectedCategory.toLowerCase());
 
-    return matchesSearch && matchesCategory;
+    if (!matchesSearch || !matchesCategory) {
+      return false;
+    }
+
+    // 3. Remote workplace filter
+    const isRemote = location.includes('remote') || empType.includes('remote') || title.includes('remote');
+    if (filterRemoteOnly && !isRemote) {
+      return false;
+    }
+
+    // 4. Job Type filter ('ALL', 'FULLTIME', 'CONTRACT', 'PART_TIME', 'INTERNSHIP')
+    if (filterJobType !== 'ALL') {
+      if (filterJobType === 'FULLTIME' && !(empType.includes('full') || (!empType.includes('contract') && !empType.includes('part') && !empType.includes('intern')))) {
+        return false;
+      }
+      if (filterJobType === 'CONTRACT' && !(empType.includes('contract') || empType.includes('freelance') || title.includes('contract'))) {
+        return false;
+      }
+      if (filterJobType === 'PART_TIME' && !(empType.includes('part') || title.includes('part-time') || title.includes('part time'))) {
+        return false;
+      }
+      if (filterJobType === 'INTERNSHIP' && !(empType.includes('intern') || title.includes('intern') || expLevel.includes('intern'))) {
+        return false;
+      }
+    }
+
+    // 5. Experience Level filter ('ALL', 'ENTRY', 'MID', 'SENIOR', 'LEAD')
+    if (filterExperience !== 'ALL') {
+      const isEntry = expLevel.includes('entry') || expLevel.includes('junior') || expLevel.includes('intern') || expLevel.includes('associate') || expLevel.includes('0-') || expLevel.includes('1-') ||
+                      title.includes('junior') || title.includes('intern') || title.includes('entry') || title.includes('associate') || title.includes('fresher') || title.includes('grad');
+      const isLead = expLevel.includes('lead') || expLevel.includes('director') || expLevel.includes('manager') || expLevel.includes('head') || expLevel.includes('vp') ||
+                     title.includes('lead') || title.includes('director') || title.includes('head') || title.includes('manager') || title.includes('principal') || title.includes('vp');
+      const isSenior = (expLevel.includes('senior') || expLevel.includes('sr.') || expLevel.includes('staff') || title.includes('senior') || title.includes('sr.') || title.includes('staff')) && !isLead;
+      const isMid = !isEntry && !isSenior && !isLead;
+
+      if (filterExperience === 'ENTRY' && !isEntry) return false;
+      if (filterExperience === 'MID' && !isMid) return false;
+      if (filterExperience === 'SENIOR' && !isSenior) return false;
+      if (filterExperience === 'LEAD' && !isLead) return false;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === 'NEWEST') {
+      const dateA = a.postedDate ? new Date(a.postedDate).getTime() : 0;
+      const dateB = b.postedDate ? new Date(b.postedDate).getTime() : 0;
+      return dateB - dateA;
+    }
+    const scoreA = a.score || a.trustScore || 90;
+    const scoreB = b.score || b.trustScore || 90;
+    return scoreB - scoreA;
   });
 
   const handleLoginSuccess = (userPayload) => {
     setCurrentUser(userPayload);
-    if (userPayload?.role === 'ROLE_EMPLOYEE' || userPayload?.role === 'ROLE_ADMIN') {
+    setInitialIsSignUp(false);
+    setAuthMessage(null);
+    if (userPayload?.role === 'ROLE_ADMIN') {
+      setActiveTab('admin-panel');
+    } else if (userPayload?.role === 'ROLE_EMPLOYEE') {
       setActiveTab('employee-panel');
     } else {
       setActiveTab('dashboard-overview');
@@ -196,9 +297,44 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setInitialIsSignUp(false);
+    setAuthMessage(null);
     try {
       localStorage.removeItem('jobproof_user');
     } catch (e) {}
+  };
+
+  const handleRequireRegistration = (reason) => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('jobproof_user');
+    } catch (e) {}
+    setInitialIsSignUp(true);
+    setAuthMessage(reason || 'Registration is required to access this feature. Please create your free candidate account to unlock full access.');
+  };
+
+  const handleApplyJob = (job) => {
+    if (currentUser?.isDemo) {
+      const compName = typeof job.company === 'object' ? job.company.name : job.company;
+      handleRequireRegistration(`Registration is required to apply for "${job.title}" at ${compName}. Please create your free candidate account to unlock direct company applications.`);
+      return;
+    }
+
+    // Forward the user directly to the official apply page of the company!
+    const targetUrl = job.applyUrl || (typeof job.company === 'object' ? job.company?.careerPage || job.company?.website : null);
+    if (targetUrl) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      setApplyingJob(job);
+    }
+  };
+
+  const handleOpenPostJob = () => {
+    if (currentUser?.isDemo) {
+      handleRequireRegistration("Posting verified jobs requires an authorized employer or recruiter account. Please register to proceed.");
+      return;
+    }
+    setShowPostJobModal(true);
   };
 
   const handleHeroSearch = (queryTitle) => {
@@ -278,7 +414,12 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-[#18181c] flex items-center justify-center p-4">
-        <LoginView onLoginSuccess={handleLoginSuccess} />
+        <LoginView 
+          onLoginSuccess={handleLoginSuccess}
+          initialIsSignUp={initialIsSignUp}
+          initialMessage={authMessage}
+          initialPanel="user"
+        />
       </div>
     );
   }
@@ -289,13 +430,44 @@ export default function App() {
       {/* Header Bar */}
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={(tab) => {
+          if (tab === 'resume-analyzer' && currentUser?.isDemo) {
+            handleRequireRegistration("AI Resume Analysis and ATS Scorecard features require a candidate account. Please register to analyze your resume.");
+            return;
+          }
+          setActiveTab(tab);
+        }}
         healthStatus={healthStatus}
         currentUser={currentUser}
         onLogout={handleLogout}
         onLoginClick={() => {}}
-        onPostJobClick={() => setShowPostJobModal(true)}
+        onPostJobClick={handleOpenPostJob}
+        onRequireRegistration={handleRequireRegistration}
+        onUpdateUser={setCurrentUser}
       />
+
+      {/* View-Only Demo Notice Banner */}
+      {currentUser?.isDemo && (
+        <div className="bg-gradient-to-r from-yellow-500/15 via-amber-500/20 to-yellow-500/15 border-b border-yellow-500/30 px-4 py-3 text-center">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm">
+            <div className="flex items-center gap-2.5 text-yellow-300 font-semibold text-left">
+              <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-400"></span>
+              </span>
+              <span>
+                <strong className="text-yellow-400">Demo User Account (Preview Mode):</strong> You are exploring in view-only mode. You can view all live jobs and details. To apply for jobs or use AI features, please register your free account.
+              </span>
+            </div>
+            <button
+              onClick={() => handleRequireRegistration("Create your free candidate account to apply for jobs and unlock AI resume tools.")}
+              className="px-4 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-extrabold text-xs transition shadow-md shadow-yellow-500/20 whitespace-nowrap flex-shrink-0 active:scale-95"
+            >
+              Register for Full Access →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Post Job / Source Code Modal */}
       {showPostJobModal && (
@@ -410,21 +582,40 @@ export default function App() {
         </div>
       )}
 
-      {/* MAIN VIEW CONTROLLER */}
-      {activeTab === 'resume-analyzer' ? (
+      {/* MAIN VIEW CONTROLLER: Staff Roles restricted to their exclusive workspaces */}
+      {currentUser?.role === 'ROLE_ADMIN' ? (
         <div className="max-w-7xl mx-auto py-8 px-4">
-          <ResumeAnalyzerSection 
-            liveJobs={jobsToDisplay} 
-            onSelectJob={(job) => setSelectedJob(job)} 
+          <TeamManagementPage 
+            currentUser={currentUser} 
+            liveJobs={jobsToDisplay}
+            onSelectView={(view) => setActiveTab(view)} 
           />
         </div>
-      ) : (activeTab === 'employee-panel' || activeTab === 'admin-panel') ? (
+      ) : currentUser?.role === 'ROLE_EMPLOYEE' ? (
         <div className="max-w-7xl mx-auto py-8 px-4">
           <EmployeeControlSection 
             liveJobs={jobsToDisplay} 
             currentUser={currentUser} 
             onPostJobClick={() => setShowPostJobModal(true)}
             onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
+            onSelectView={(view) => setActiveTab(view)}
+          />
+        </div>
+      ) : activeTab === 'resume-analyzer' ? (
+        <div className="max-w-7xl mx-auto py-8 px-4">
+          <ResumeAnalyzerSection 
+            liveJobs={jobsToDisplay} 
+            onSelectJob={(job) => setSelectedJob(job)} 
+            currentUser={currentUser}
+            onRequireRegistration={handleRequireRegistration}
+          />
+        </div>
+      ) : activeTab === 'experience-board' ? (
+        <div className="max-w-7xl mx-auto py-4 px-4">
+          <ExperienceBoardSection 
+            currentUser={currentUser}
+            onOpenShareModal={() => setShowShareModal(true)}
+            onRequireLogin={handleRequireRegistration}
           />
         </div>
       ) : (
@@ -433,7 +624,14 @@ export default function App() {
           {/* 1. HERO SECTION */}
           <HeroSection 
             onSearch={handleHeroSearch} 
-            onCategorySelect={(cat) => setSelectedCategory(cat)}
+            onCategorySelect={(cat) => {
+              if (currentUser?.isDemo) {
+                handleRequireRegistration(`Registration is required to explore the "${cat}" job category. Please create your free candidate account to unlock all features!`);
+                return;
+              }
+              setSelectedCategory(cat);
+              handleHeroSearch(cat || '');
+            }}
           />
 
           {/* 2. TRUSTED BY 1000+ COMPANIES TICKER */}
@@ -441,39 +639,230 @@ export default function App() {
 
           {/* 3. BROWSE JOB CATEGORY GRID */}
           <CategoryGridSection 
+            jobs={jobsToDisplay}
             selectedCategory={selectedCategory} 
+            currentUser={currentUser}
             onSelectCategory={(cat) => {
+              if (currentUser?.isDemo) {
+                handleRequireRegistration(`Registration is required to explore the "${cat}" job category. Please create your free candidate account to unlock full access to category jobs and apply!`);
+                return;
+              }
               setSelectedCategory(cat);
               handleHeroSearch(cat || '');
             }}
           />
 
-          {/* 4. VERIFIED LIVE JOBS LISTINGS */}
-          <section id="job-listings-section" className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-12 space-y-8">
+          {/* 4. VERIFIED LIVE JOBS LISTINGS & MULTI-CRITERIA DISCOVERY HUB */}
+          <section id="job-listings-section" className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-12 space-y-6">
+            
+            {/* Section Header & Main Search */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-gray-800 pb-6">
               <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/30 text-yellow-400 text-xs font-bold mb-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
+                  <span>100% Direct Application Guarantee</span>
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-                  <ShieldCheck className="w-7 h-7 text-yellow-400" />
                   Verified <span className="text-yellow-400">Live Job</span> Listings
                 </h2>
                 <p className="text-gray-400 text-xs sm:text-sm">
-                  Showing {filteredJobs.length} AI-verified active job openings with transparent trust scores
+                  Showing {filteredJobs.length} of {jobsToDisplay.length} openings. Click any role to apply directly on the official company careers portal.
                 </p>
               </div>
 
-              {/* Filter Search Input directly associated with listing */}
-              <div className="relative w-full sm:w-80 md:w-96">
-                <label htmlFor="job-filter-input" className="sr-only">Filter listings</label>
-                <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  id="job-filter-input"
-                  type="text"
-                  placeholder="Filter by title, company, skill, or location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-[#222228] border border-gray-800 rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none transition-colors"
-                />
+              {/* Keyword Search & Sort Controls */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full sm:w-72 md:w-80">
+                  <label htmlFor="job-filter-input" className="sr-only">Filter listings</label>
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="job-filter-input"
+                    type="text"
+                    placeholder="Search title, company, skill, location..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2.5 bg-[#222228] border border-gray-800 rounded-xl text-xs sm:text-sm text-white placeholder-gray-500 focus:border-yellow-400 focus:outline-none transition-colors"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative flex-shrink-0">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full sm:w-auto bg-[#222228] border border-gray-800 rounded-xl px-3.5 py-2.5 text-xs text-gray-300 font-bold focus:border-yellow-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="TRUST">★ Highest Trust Score</option>
+                    <option value="NEWEST">⏱️ Most Recent First</option>
+                  </select>
+                </div>
               </div>
+            </div>
+
+            {/* MULTI-FILTER TOOLBAR: EXPERIENCE, REMOTE, JOB TYPE */}
+            <div className="bg-[#222228] border border-gray-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-lg">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                
+                {/* Filter Controls Group */}
+                <div className="flex flex-wrap items-center gap-3">
+                  
+                  {/* Experience Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5 text-yellow-400" />
+                      Experience:
+                    </span>
+                    <select
+                      value={filterExperience}
+                      onChange={(e) => setFilterExperience(e.target.value)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition focus:outline-none cursor-pointer ${
+                        filterExperience !== 'ALL'
+                          ? 'bg-yellow-400/10 border-yellow-500/40 text-yellow-400'
+                          : 'bg-[#18181c] border-gray-800 text-gray-300 hover:bg-gray-800'
+                      }`}
+                    >
+                      <option value="ALL">All Experience Levels</option>
+                      <option value="ENTRY">🌱 Entry Level / Junior (0-2 yrs)</option>
+                      <option value="MID">⚡ Mid Level (2-5 yrs)</option>
+                      <option value="SENIOR">⭐ Senior Level (5+ yrs)</option>
+                      <option value="LEAD">👑 Lead / Executive</option>
+                    </select>
+                  </div>
+
+                  {/* Employment Type Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-400 flex items-center gap-1">
+                      <Briefcase className="w-3.5 h-3.5 text-yellow-400" />
+                      Type:
+                    </span>
+                    <select
+                      value={filterJobType}
+                      onChange={(e) => setFilterJobType(e.target.value)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition focus:outline-none cursor-pointer ${
+                        filterJobType !== 'ALL'
+                          ? 'bg-yellow-400/10 border-yellow-500/40 text-yellow-400'
+                          : 'bg-[#18181c] border-gray-800 text-gray-300 hover:bg-gray-800'
+                      }`}
+                    >
+                      <option value="ALL">All Job Types</option>
+                      <option value="FULLTIME">💼 Full-Time</option>
+                      <option value="CONTRACT">📄 Contract / Freelance</option>
+                      <option value="PART_TIME">⏱️ Part-Time</option>
+                      <option value="INTERNSHIP">🎓 Internship</option>
+                    </select>
+                  </div>
+
+                  {/* Remote Only Toggle */}
+                  <button
+                    onClick={() => setFilterRemoteOnly(!filterRemoteOnly)}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition active:scale-95 ${
+                      filterRemoteOnly
+                        ? 'bg-emerald-500/15 border-emerald-500/50 text-emerald-400 shadow-sm'
+                        : 'bg-[#18181c] border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    <Globe className={`w-3.5 h-3.5 ${filterRemoteOnly ? 'text-emerald-400' : 'text-gray-400'}`} />
+                    <span>Remote Only</span>
+                    {filterRemoteOnly && <span className="text-[10px] font-black">✓</span>}
+                  </button>
+                </div>
+
+                {/* Quick Results Summary */}
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
+                  <span className="px-2.5 py-1 rounded-lg bg-[#18181c] border border-gray-800 text-yellow-400 font-extrabold">
+                    {filteredJobs.length}
+                  </span>
+                  <span>Positions Found</span>
+                </div>
+              </div>
+
+              {/* Active Filter Tags & Reset All */}
+              {(searchTerm || selectedCategory || filterExperience !== 'ALL' || filterJobType !== 'ALL' || filterRemoteOnly) && (
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-800/80 text-xs">
+                  <span className="text-gray-500 font-semibold mr-1">Active Filters:</span>
+
+                  {selectedCategory && (
+                    <button
+                      onClick={() => setSelectedCategory(null)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-400/15 border border-yellow-500/30 text-yellow-300 font-bold hover:bg-yellow-400/25 transition"
+                    >
+                      <span>Category: {selectedCategory}</span>
+                      <X className="w-3 h-3 text-yellow-400" />
+                    </button>
+                  )}
+
+                  {filterExperience !== 'ALL' && (
+                    <button
+                      onClick={() => setFilterExperience('ALL')}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-400/15 border border-yellow-500/30 text-yellow-300 font-bold hover:bg-yellow-400/25 transition"
+                    >
+                      <span>Exp: {
+                        filterExperience === 'ENTRY' ? 'Entry Level' :
+                        filterExperience === 'MID' ? 'Mid Level' :
+                        filterExperience === 'SENIOR' ? 'Senior Level' : 'Lead / Executive'
+                      }</span>
+                      <X className="w-3 h-3 text-yellow-400" />
+                    </button>
+                  )}
+
+                  {filterJobType !== 'ALL' && (
+                    <button
+                      onClick={() => setFilterJobType('ALL')}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-400/15 border border-yellow-500/30 text-yellow-300 font-bold hover:bg-yellow-400/25 transition"
+                    >
+                      <span>Type: {
+                        filterJobType === 'FULLTIME' ? 'Full-Time' :
+                        filterJobType === 'CONTRACT' ? 'Contract' :
+                        filterJobType === 'PART_TIME' ? 'Part-Time' : 'Internship'
+                      }</span>
+                      <X className="w-3 h-3 text-yellow-400" />
+                    </button>
+                  )}
+
+                  {filterRemoteOnly && (
+                    <button
+                      onClick={() => setFilterRemoteOnly(false)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold hover:bg-emerald-500/25 transition"
+                    >
+                      <span>Workplace: Remote Only</span>
+                      <X className="w-3 h-3 text-emerald-400" />
+                    </button>
+                  )}
+
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 font-bold hover:bg-gray-700 transition"
+                    >
+                      <span>Search: "{searchTerm}"</span>
+                      <X className="w-3 h-3 text-gray-400" />
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSelectedCategory(null);
+                      setFilterExperience('ALL');
+                      setFilterJobType('ALL');
+                      setFilterRemoteOnly(false);
+                      setSortBy('TRUST');
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#18181c] hover:bg-rose-950/40 text-rose-400 hover:border-rose-800 border border-gray-800 text-xs font-bold transition ml-auto"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset All Filters</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Job Grid Table */}
@@ -481,7 +870,7 @@ export default function App() {
               jobs={filteredJobs} 
               searchTerm={searchTerm} 
               onSelectJob={(job) => setSelectedJob(job)}
-              onApplyJob={(job) => setApplyingJob(job)}
+              onApplyJob={handleApplyJob}
             />
           </section>
         </main>
@@ -492,7 +881,9 @@ export default function App() {
         <JobDetailsModal 
           job={selectedJob} 
           onClose={() => setSelectedJob(null)} 
-          onApply={(job) => setApplyingJob(job)}
+          onApply={handleApplyJob}
+          currentUser={currentUser}
+          onRequireRegistration={handleRequireRegistration}
         />
       )}
 
@@ -503,6 +894,16 @@ export default function App() {
           currentUser={currentUser}
           onClose={() => setApplyingJob(null)}
           onApplicationSubmitted={() => {}}
+        />
+      )}
+
+      {/* SHARE EXPERIENCE MODAL */}
+      {showShareModal && (
+        <ShareExperienceModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          currentUser={currentUser}
+          onExperienceSubmitted={() => {}}
         />
       )}
 

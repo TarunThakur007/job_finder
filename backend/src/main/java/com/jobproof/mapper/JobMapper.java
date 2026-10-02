@@ -101,4 +101,9 @@ public class JobMapper {
                 .evidence(evidenceList)
                 .build();
     }
+
+    public Object toJobDTO(JobDTO job) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'toJobDTO'");
+    }
 }

@@ -36,19 +36,19 @@ public class ResumeAnalysis {
     @Column(name = "impact_verb_score", nullable = false)
     private Integer impactVerbScore;
 
-    @Column(name = "extracted_skills", columnDefinition = "JSONB")
+    @Column(name = "extracted_skills", columnDefinition = "TEXT")
     private String extractedSkills;
 
-    @Column(name = "missing_critical_skills", columnDefinition = "JSONB")
+    @Column(name = "missing_critical_skills", columnDefinition = "TEXT")
     private String missingCriticalSkills;
 
-    @Column(name = "strengths", columnDefinition = "JSONB")
+    @Column(name = "strengths", columnDefinition = "TEXT")
     private String strengths;
 
-    @Column(name = "formatting_warnings", columnDefinition = "JSONB")
+    @Column(name = "formatting_warnings", columnDefinition = "TEXT")
     private String formattingWarnings;
 
-    @Column(name = "improvement_recommendations", columnDefinition = "JSONB")
+    @Column(name = "improvement_recommendations", columnDefinition = "TEXT")
     private String improvementRecommendations;
 
     @Column(columnDefinition = "TEXT")

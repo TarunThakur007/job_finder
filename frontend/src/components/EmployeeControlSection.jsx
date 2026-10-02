@@ -27,13 +27,20 @@ import {
   Clock,
   Filter,
   Edit3,
-  Award
+  Award,
+  UserPlus,
+  Bell,
+  BellRing,
+  CheckCheck,
+  AlertCircle,
+  Radio
 } from 'lucide-react';
 import ApplicantResumeModal from './ApplicantResumeModal';
 import EditAndGrantPermissionModal from './EditAndGrantPermissionModal';
+import DeployUserModal from './DeployUserModal';
 
-export default function EmployeeControlSection({ liveJobs = [], currentUser, onPostJobClick, onLoginAsEmployee }) {
-  const [activeTab, setActiveTab] = useState('vacancies'); // 'vacancies' | 'applications'
+export default function EmployeeControlSection({ liveJobs = [], currentUser, onPostJobClick, onLoginAsEmployee, onSelectView }) {
+  const [activeTab, setActiveTab] = useState('vacancies'); // 'vacancies' | 'applications' | 'team'
   
   // Vacancies State
   const [pendingJobs, setPendingJobs] = useState([]);
@@ -44,12 +51,24 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
   const [vacancySearch, setVacancySearch] = useState('');
   const [editingJob, setEditingJob] = useState(null);
 
+  // Hourly AI Job Freshness & Closed Vacancy Notifications State
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [showNotificationDrawer, setShowNotificationDrawer] = useState(false);
+  const [auditingFreshness, setAuditingFreshness] = useState(false);
+
   // Applications State
   const [applications, setApplications] = useState([]);
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [applicationSearch, setApplicationSearch] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
   const [selectedApplication, setSelectedApplication] = useState(null);
+
+  // Team Management State (Admin Only)
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamSearch, setTeamSearch] = useState('');
 
   const defaultApplications = [
     {
@@ -168,33 +187,151 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
     }
   };
 
+  const fetchTeamMembers = async () => {
+    setTeamLoading(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      let list = [];
+      if (res.ok) {
+        list = await res.json();
+      }
+      let local = [];
+      try {
+        local = JSON.parse(localStorage.getItem('jobproof_deployed_users') || '[]');
+      } catch (e) {}
+
+      const map = new Map();
+      list.forEach(u => {
+        if (u && u.email) map.set(u.email.toLowerCase(), u);
+      });
+      local.forEach(u => {
+        if (u && u.email && !map.has(u.email.toLowerCase())) {
+          map.set(u.email.toLowerCase(), u);
+        }
+      });
+      setTeamMembers(Array.from(map.values()));
+    } catch (e) {
+      try {
+        const local = JSON.parse(localStorage.getItem('jobproof_deployed_users') || '[]');
+        setTeamMembers(local);
+      } catch (err) {}
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const handleDeleteTeamMember = async (user) => {
+    if (!window.confirm(`Revoke platform clearance and remove ${user.name}?`)) return;
+    try {
+      if (user.id) {
+        await fetch(`/api/admin/users/${user.id}`, { method: 'DELETE' });
+      }
+    } catch (e) {}
+    try {
+      const local = JSON.parse(localStorage.getItem('jobproof_deployed_users') || '[]');
+      const filtered = local.filter(u => u.email?.toLowerCase() !== user.email?.toLowerCase());
+      localStorage.setItem('jobproof_deployed_users', JSON.stringify(filtered));
+    } catch (e) {}
+    setTeamMembers(prev => prev.filter(u => u.email?.toLowerCase() !== user.email?.toLowerCase()));
+    setActionNotice({ type: 'info', msg: `Revoked clearance and deleted ${user.name} (${user.email}).` });
+    setTimeout(() => setActionNotice(null), 4000);
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/notifications');
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+        setUnreadNotificationsCount(data.unreadCount || 0);
+      }
+    } catch (e) {
+      console.error('Error fetching employee notifications:', e);
+    }
+  };
+
+  const handleMarkNotificationRead = async (id) => {
+    try {
+      const res = await fetch(`/api/notifications/${id}/read`, { method: 'PUT' });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+        setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (e) {
+      console.error('Error marking notification as read:', e);
+    }
+  };
+
+  const handleDismissNotification = async (id) => {
+    try {
+      const res = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        fetchNotifications();
+      }
+    } catch (e) {
+      console.error('Error dismissing notification:', e);
+    }
+  };
+
+  const handleRunFreshnessAudit = async () => {
+    setAuditingFreshness(true);
+    setActionNotice({ type: 'info', msg: 'Hourly AI Freshness Agent is checking live career portals & ATS endpoints...' });
+    try {
+      const res = await fetch('/api/notifications/run-audit', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const detected = data.closedJobsDetected || 0;
+        setActionNotice({
+          type: detected > 0 ? 'error' : 'success',
+          msg: detected > 0 
+            ? `AI Audit Complete: ${detected} closed position(s) detected. Automatically unlisted and employee notification created!`
+            : 'AI Audit Complete: All listed jobs are active, open, and accepting candidate applications!'
+        });
+        fetchNotifications();
+        fetchPendingJobs();
+        if (detected > 0) {
+          setShowNotificationDrawer(true);
+        }
+      }
+    } catch (e) {
+      setActionNotice({ type: 'error', msg: 'Error running AI job freshness check.' });
+    } finally {
+      setAuditingFreshness(false);
+      setTimeout(() => setActionNotice(null), 6000);
+    }
+  };
+
   useEffect(() => {
     fetchPendingJobs();
     fetchApplications();
+    fetchTeamMembers();
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Check if current user has employee / admin role
   const isEmployee = currentUser?.role === 'ROLE_EMPLOYEE' || currentUser?.role === 'ROLE_ADMIN';
+  const isAdmin = currentUser?.role === 'ROLE_ADMIN';
 
-  // Fast one-click Employee login if guest
-  const handleQuickEmployeeLogin = () => {
-    const employeeUser = {
-      name: 'Sarah Jenkins',
-      email: 'sarah.jenkins@google.com',
-      role: 'ROLE_EMPLOYEE',
-      title: 'Company Recruiter & Hiring Partner',
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=120',
-      company: 'Google'
-    };
-    try {
-      localStorage.setItem('jobproof_user', JSON.stringify(employeeUser));
-      if (onLoginAsEmployee) {
-        onLoginAsEmployee(employeeUser);
-      } else {
-        window.location.reload();
-      }
-    } catch (e) {}
-  };
+  // Author-governed permissions
+  const userPermissions = currentUser?.permissions || [
+    'REVIEW_AI_VACANCIES',
+    'GRANT_PERMISSION',
+    'EDIT_JOB_DETAILS',
+    'VIEW_APPLICATIONS',
+    'UPDATE_STATUS'
+  ];
+
+  const canReviewVacancies = isAdmin || userPermissions.includes('REVIEW_AI_VACANCIES');
+  const canGrantPermission = isAdmin || userPermissions.includes('GRANT_PERMISSION');
+  const canEditJobDetails = isAdmin || userPermissions.includes('EDIT_JOB_DETAILS');
+  const canViewApplications = isAdmin || userPermissions.includes('VIEW_APPLICATIONS');
+  const canUpdateStatus = isAdmin || userPermissions.includes('UPDATE_STATUS');
+  const canPostDirectJobs = isAdmin || userPermissions.includes('POST_DIRECT_JOBS');
+
+
 
   // Direct Grant Permission (Approve)
   const handleGrantPermission = async (job) => {
@@ -299,13 +436,10 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
           </p>
         </div>
         <div className="pt-2 flex justify-center">
-          <button
-            onClick={handleQuickEmployeeLogin}
-            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black tracking-wide shadow-lg shadow-yellow-500/20 active:scale-95 transition-all"
-          >
-            <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-            <span>Enable Company Employee Access</span>
-          </button>
+          <div className="inline-flex items-center gap-2 text-xs text-yellow-400 font-bold bg-yellow-400/10 border border-yellow-500/30 px-5 py-2.5 rounded-2xl">
+            <ShieldCheck className="w-4 h-4 text-yellow-400" />
+            <span>Authorized Clearance Only: Deployed by Admin Author</span>
+          </div>
         </div>
       </div>
     );
@@ -336,6 +470,17 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
     return name.includes(term) || email.includes(term) || jobTitle.includes(term) || company.includes(term) || role.includes(term) || skills.includes(term);
   });
 
+  // Filter deployed team members
+  const filteredTeam = teamMembers.filter(m => {
+    if (!teamSearch) return true;
+    const s = teamSearch.toLowerCase();
+    return (m.name || '').toLowerCase().includes(s) ||
+      (m.email || '').toLowerCase().includes(s) ||
+      (m.role || '').toLowerCase().includes(s) ||
+      (m.company || '').toLowerCase().includes(s) ||
+      (m.title || '').toLowerCase().includes(s);
+  });
+
   return (
     <div className="space-y-8 animate-fadeIn">
       
@@ -350,7 +495,7 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
             AI Staging & <span className="text-yellow-400">Permission Grant Center</span>
           </h1>
           <p className="text-xs text-gray-400 leading-relaxed">
-            Review vacancies discovered by the autonomous AI Agent across Greenhouse, Lever, and Ashby boards. Inspect and refine details, grant permission to publish live with verified trust scores, and evaluate candidate resumes.
+            Review vacancies discovered by the autonomous AI Agent across official career and ATS feeds. Inspect and refine details, and grant permission to publish verified jobs live to the public portal.
           </p>
         </div>
 
@@ -395,101 +540,325 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
         </div>
       )}
 
-      {/* Navigation Switcher: AI Vacancies vs Candidate Applications */}
-      <div className="flex items-center gap-3 border-b border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab('vacancies')}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeTab === 'vacancies'
-              ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
-              : 'bg-slate-900 text-gray-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>AI Vacancies & Grant Permissions</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeTab === 'vacancies' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
-          }`}>
-            {pendingJobs.length}
-          </span>
-        </button>
+      {/* Author Clearance Governance Banner */}
+      <div className="bg-[#222228] border border-gray-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-yellow-400/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 flex-shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold text-white flex items-center gap-2">
+              <span>{isAdmin ? 'Master Admin Author Session' : 'Employee Clearance Active'}:</span>
+              <span className="text-yellow-400">{currentUser?.name}</span>
+            </p>
+            <p className="text-[11px] text-gray-400">
+              {isAdmin 
+                ? 'Author with supreme authority to deploy employees and grant operational permissions.' 
+                : `Authorized & Deployed by Admin Author: ${currentUser?.author || 'Alex Vance (Admin Author)'}`}
+            </p>
+          </div>
+        </div>
 
-        <button
-          onClick={() => setActiveTab('applications')}
-          className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
-            activeTab === 'applications'
-              ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
-              : 'bg-slate-900 text-gray-400 hover:text-white hover:bg-slate-800 border border-slate-800'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Candidate Applications</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            activeTab === 'applications' ? 'bg-gray-950 text-yellow-400' : 'bg-slate-800 text-gray-300'
-          }`}>
-            {applications.length}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] text-gray-400 uppercase font-bold mr-1">
+            {isAdmin ? 'Clearance Level:' : 'Author-Granted Permissions:'}
           </span>
-        </button>
+          {isAdmin ? (
+            <span className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[10px] font-extrabold">
+              ★ Master Admin Authority
+            </span>
+          ) : (
+            userPermissions.map((perm) => (
+              <span key={perm} className="px-2 py-0.5 rounded-lg bg-[#18181c] border border-gray-800 text-[10px] text-yellow-400 font-bold">
+                ✓ {perm.replace(/_/g, ' ')}
+              </span>
+            ))
+          )}
+        </div>
       </div>
+
+      {/* Employee Focused Permission Header */}
+      {isAdmin ? (
+        <div className="flex items-center gap-3 border-b border-gray-800 pb-2 flex-wrap">
+          <button
+            onClick={() => setActiveTab('vacancies')}
+            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+              activeTab === 'vacancies'
+                ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
+                : 'bg-[#18181c] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>AI Vacancies & Grant Permissions</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeTab === 'vacancies' ? 'bg-gray-950 text-yellow-400' : 'bg-gray-800 text-gray-300'
+            }`}>
+              {pendingJobs.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('applications')}
+            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+              activeTab === 'applications'
+                ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
+                : 'bg-[#18181c] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Candidate Applications</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeTab === 'applications' ? 'bg-gray-950 text-yellow-400' : 'bg-gray-800 text-gray-300'
+            }`}>
+              {applications.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => onSelectView ? onSelectView('admin-panel') : setActiveTab('team')}
+            className={`flex items-center gap-2.5 px-6 py-3 rounded-2xl text-xs font-black transition-all ${
+              activeTab === 'team'
+                ? 'bg-yellow-400 text-gray-950 shadow-lg shadow-yellow-500/20'
+                : 'bg-[#18181c] text-gray-400 hover:text-white hover:bg-gray-800 border border-gray-800'
+            }`}
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Deploy & Manage Team Page</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeTab === 'team' ? 'bg-gray-950 text-yellow-400' : 'bg-gray-800 text-gray-300'
+            }`}>
+              {teamMembers.length}
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between border-b border-gray-800 pb-3 flex-wrap gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse" />
+            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase">
+              AI Vacancy Permission Grant & Publishing Center
+            </h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-500/30 text-yellow-400 text-xs font-black">
+              {pendingJobs.length} Staged For Your Permission
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: AI VACANCIES & GRANT PERMISSION */}
       {activeTab === 'vacancies' && (
         <div className="space-y-6">
           {/* Telemetry Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Awaiting Your Permission</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Awaiting Your Permission</p>
               <p className="text-3xl font-extrabold text-amber-400 mt-1">{pendingJobs.length}</p>
               <p className="text-[11px] text-amber-400/80 mt-1">Discovered by AI Agent</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Live Approved Jobs</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Live Approved Jobs</p>
               <p className="text-3xl font-extrabold text-emerald-400 mt-1">{adminStats?.activeJobs || 0}</p>
               <p className="text-[11px] text-emerald-400/80 mt-1">Granted Permission & Published</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Total Verified Positions</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Total Verified Positions</p>
               <p className="text-3xl font-extrabold text-white mt-1">{adminStats?.totalJobs || 0}</p>
-              <p className="text-[11px] text-blue-400 mt-1">In Platform Governance</p>
+              <p className="text-[11px] text-yellow-400 mt-1">In Platform Governance</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Connected ATS Feeds</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Connected ATS Feeds</p>
               <p className="text-3xl font-extrabold text-yellow-400 mt-1">3 ATS</p>
               <p className="text-[11px] text-gray-400 mt-1">Greenhouse • Lever • Ashby</p>
             </div>
           </div>
 
+          {/* HOURLY AI VACANCY FRESHNESS & CLOSURE MONITOR */}
+          <div className="bg-[#222228] border border-yellow-500/30 rounded-3xl p-6 sm:p-7 space-y-4 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-32 bg-yellow-400/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                    Hourly AI Job Freshness Agent Active (Cron: 00 * * * *)
+                  </span>
+                  {unreadNotificationsCount > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black animate-pulse">
+                      {unreadNotificationsCount} Closed Roles Detected
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="text-lg font-black text-white flex items-center gap-2">
+                  <span>Automated Hourly Job Status & Closure Sentinel</span>
+                </h3>
+
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Every hour, the AI Sentinel pings all live vacancies listed on our website. If an employer removes the position or their ATS flags it as closed/expired, the AI agent <strong>instantly unlists it</strong> from the public search and dispatches an alert here for employee review.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
+                <button
+                  onClick={() => setShowNotificationDrawer(!showNotificationDrawer)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition border ${
+                    unreadNotificationsCount > 0
+                      ? 'bg-rose-950/40 border-rose-800 text-rose-300 hover:bg-rose-900/50'
+                      : 'bg-[#18181c] border-gray-800 text-gray-300 hover:bg-gray-800'
+                  }`}
+                >
+                  <Bell className={`w-4 h-4 ${unreadNotificationsCount > 0 ? 'text-rose-400 animate-bounce' : 'text-gray-400'}`} />
+                  <span>Closure Alerts</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    unreadNotificationsCount > 0 ? 'bg-rose-500 text-white' : 'bg-gray-800 text-gray-400'
+                  }`}>
+                    {unreadNotificationsCount}
+                  </span>
+                </button>
+
+                <button
+                  onClick={handleRunFreshnessAudit}
+                  disabled={auditingFreshness}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition shadow-lg shadow-yellow-500/20 active:scale-95 disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${auditingFreshness ? 'animate-spin' : ''}`} />
+                  <span>{auditingFreshness ? 'Auditing Live ATS Boards...' : '⚡ Audit Vacancy Freshness Now'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* EXPANDABLE NOTIFICATIONS DRAWER */}
+            {(showNotificationDrawer || unreadNotificationsCount > 0) && (
+              <div className="mt-4 pt-4 border-t border-gray-800/80 space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wide flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Employee Notifications: Closed Vacancies Detected by AI Agent ({notifications.length})</span>
+                  </h4>
+                  <button
+                    onClick={() => setShowNotificationDrawer(false)}
+                    className="text-[11px] text-gray-500 hover:text-gray-300 transition"
+                  >
+                    Hide Panel
+                  </button>
+                </div>
+
+                {notifications.length === 0 ? (
+                  <div className="p-4 rounded-2xl bg-[#18181c] border border-gray-800 text-center text-xs text-emerald-400 font-semibold flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>All verified listed vacancies are currently OPEN and accepting applications!</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`p-3.5 rounded-2xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          !n.isRead 
+                            ? 'bg-rose-950/20 border-rose-800/60 text-white' 
+                            : 'bg-[#18181c] border-gray-800 text-gray-400'
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-400 text-[10px] font-black border border-rose-500/30">
+                              CLOSED & UNLISTED
+                            </span>
+                            <span className="font-extrabold text-xs text-white">
+                              {n.jobTitle}
+                            </span>
+                            <span className="text-xs text-gray-400">@ {n.companyName}</span>
+                            {!n.isRead && (
+                              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-gray-300">
+                            <strong>Reason:</strong> {n.reason}
+                          </p>
+
+                          <p className="text-[10px] text-gray-500">
+                            {n.message}
+                          </p>
+
+                          <div className="flex items-center gap-3 pt-1 text-[10px] text-gray-500">
+                            <span>Detected: {n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}</span>
+                            {n.applyUrl && (
+                              <a
+                                href={n.applyUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-yellow-400 hover:underline flex items-center gap-1"
+                              >
+                                View Target ATS URL <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                          {!n.isRead && (
+                            <button
+                              onClick={() => handleMarkNotificationRead(n.id)}
+                              className="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-emerald-400 text-xs font-bold transition flex items-center gap-1"
+                              title="Mark as Acknowledged"
+                            >
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span>Acknowledge</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDismissNotification(n.id)}
+                            className="p-1.5 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-rose-400 transition"
+                            title="Dismiss Notification"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* AI Staging Queue */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <ShieldAlert className="w-5 h-5 text-yellow-400" />
                   <span>AI Discovered Listings Awaiting Employee Permission ({filteredJobs.length})</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-400 mt-1">
                   Inspect the details discovered by the AI agent. You can click <strong>"Review & Edit Details"</strong> to refine information or click <strong>"Grant Permission"</strong> to publish live.
                 </p>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Filter by company, title..."
                     value={vacancySearch}
                     onChange={e => setVacancySearch(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-yellow-400 w-48 sm:w-64"
+                    className="bg-[#18181c] border border-gray-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400 w-48 sm:w-64"
                   />
                 </div>
 
                 <button
                   onClick={fetchPendingJobs}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  className="p-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-gray-300 border border-gray-800 transition"
                   title="Refresh queue"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -573,24 +942,36 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
                         </div>
 
                         {/* Review & Edit AI Details Button */}
-                        <button
-                          onClick={() => setEditingJob(job)}
-                          className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-slate-700"
-                          title="Inspect and edit details extracted by AI"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-yellow-400" />
-                          <span>Review & Edit Details</span>
-                        </button>
+                        {canEditJobDetails && (
+                          <button
+                            onClick={() => setEditingJob(job)}
+                            className="px-3.5 py-2.5 rounded-xl bg-[#222228] hover:bg-gray-800 text-gray-200 text-xs font-bold transition flex items-center justify-center gap-1.5 border border-gray-800"
+                            title="Inspect and edit details extracted by AI"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-yellow-400" />
+                            <span>Review & Edit Details</span>
+                          </button>
+                        )}
 
                         {/* GRANT PERMISSION BUTTON */}
-                        <button
-                          onClick={() => handleGrantPermission(job)}
-                          className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-yellow-500/20 active:scale-95"
-                          title="Grant permission to publish this AI job listing live"
-                        >
-                          <Check className="w-4 h-4 stroke-[3]" />
-                          <span>Grant Permission</span>
-                        </button>
+                        {canGrantPermission ? (
+                          <button
+                            onClick={() => handleGrantPermission(job)}
+                            className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-yellow-500/20 active:scale-95"
+                            title="Grant permission to publish this AI job listing live"
+                          >
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>Grant Permission</span>
+                          </button>
+                        ) : (
+                          <div
+                            className="px-3.5 py-2.5 rounded-xl bg-[#18181c] border border-gray-800 text-gray-500 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-not-allowed"
+                            title="Admin Author permission required: 'GRANT_PERMISSION' not enabled for your account"
+                          >
+                            <Lock className="w-3.5 h-3.5 text-gray-500" />
+                            <span>Permission Locked</span>
+                          </div>
+                        )}
 
                         {/* Reject / Discard Button */}
                         <button
@@ -610,35 +991,35 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
         </div>
       )}
 
-      {/* TAB 2: CANDIDATE APPLICATIONS */}
-      {activeTab === 'applications' && (
+      {/* TAB 2: CANDIDATE APPLICATIONS (ADMIN ONLY) */}
+      {isAdmin && activeTab === 'applications' && (
         <div className="space-y-6">
           {/* Telemetry Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Total Applications</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Total Applications</p>
               <p className="text-3xl font-extrabold text-white mt-1">{applications.length}</p>
               <p className="text-[11px] text-gray-400 mt-1">Submitted for Your Jobs</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Pending Review</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Pending Review</p>
               <p className="text-3xl font-extrabold text-amber-400 mt-1">
                 {applications.filter(a => a.status === 'PENDING').length}
               </p>
               <p className="text-[11px] text-amber-400/80 mt-1">Action Required</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Shortlisted</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Shortlisted</p>
               <p className="text-3xl font-extrabold text-emerald-400 mt-1">
                 {applications.filter(a => a.status === 'SHORTLISTED').length}
               </p>
               <p className="text-[11px] text-emerald-400/80 mt-1">Ready for Interview</p>
             </div>
 
-            <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
-              <p className="text-xs text-slate-400 font-semibold">Accepted / Offers</p>
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Accepted / Offers</p>
               <p className="text-3xl font-extrabold text-purple-400 mt-1">
                 {applications.filter(a => a.status === 'ACCEPTED').length}
               </p>
@@ -647,34 +1028,34 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
           </div>
 
           {/* Applications Table Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
               <div>
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Users className="w-5 h-5 text-yellow-400" />
                   <span>Applicant Review & Resumes ({filteredApplications.length})</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-400 mt-1">
                   Inspect candidate contact info, work history, skills, and interactive ATS resume.
                 </p>
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Search candidate, role, skill..."
                     value={applicationSearch}
                     onChange={e => setApplicationSearch(e.target.value)}
-                    className="bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-yellow-400 w-52 sm:w-64"
+                    className="bg-[#18181c] border border-gray-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400 w-52 sm:w-64"
                   />
                 </div>
 
                 <select
                   value={selectedStatusFilter}
                   onChange={(e) => setSelectedStatusFilter(e.target.value)}
-                  className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-400"
+                  className="bg-[#18181c] border border-gray-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-400"
                 >
                   <option value="ALL">All Statuses ({applications.length})</option>
                   <option value="PENDING">Pending Review</option>
@@ -686,7 +1067,7 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
 
                 <button
                   onClick={fetchApplications}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                  className="p-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-gray-300 border border-gray-800 transition"
                   title="Refresh applications list"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -695,15 +1076,15 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
             </div>
 
             {applicationsLoading ? (
-              <div className="py-12 text-center text-slate-400 space-y-3">
+              <div className="py-12 text-center text-gray-400 space-y-3">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto text-yellow-400" />
                 <p className="text-xs font-semibold">Loading applications...</p>
               </div>
             ) : filteredApplications.length === 0 ? (
-              <div className="py-12 text-center text-slate-400 space-y-3 bg-slate-800/30 rounded-2xl border border-dashed border-slate-800">
-                <Users className="w-10 h-10 mx-auto text-slate-500" />
+              <div className="py-12 text-center text-gray-400 space-y-3 bg-[#18181c] rounded-2xl border border-dashed border-gray-800">
+                <Users className="w-10 h-10 mx-auto text-gray-500" />
                 <h4 className="text-sm font-bold text-white">No Applications Found</h4>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                <p className="text-xs text-gray-400 max-w-sm mx-auto">
                   No candidate applications match your current search/filter.
                 </p>
               </div>
@@ -807,6 +1188,161 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
         </div>
       )}
 
+      {/* TAB 3: DEPLOY & MANAGE TEAM (EMPLOYEES & ADMINS) */}
+      {activeTab === 'team' && currentUser?.role === 'ROLE_ADMIN' && (
+        <div className="space-y-6 animate-fadeIn">
+          
+          {/* Link to Dedicated Team Management Page */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#18181c] border border-yellow-500/30">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-extrabold text-white">Full Deploy & Team Management Authority Page</p>
+                <p className="text-[11px] text-gray-400">As the Admin Author, access the master console to manage granular permissions, author attributions, and bulk provisioning.</p>
+              </div>
+            </div>
+            {onSelectView && (
+              <button
+                onClick={() => onSelectView('admin-panel')}
+                className="px-4 py-2 rounded-xl bg-yellow-400 text-gray-950 text-xs font-black hover:bg-yellow-300 transition whitespace-nowrap active:scale-95"
+              >
+                Open Deploy & Team Page →
+              </button>
+            )}
+          </div>
+
+          {/* Telemetry Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Deployed Company Employees</p>
+              <p className="text-3xl font-extrabold text-yellow-400 mt-1">
+                {teamMembers.filter(u => u.role === 'ROLE_EMPLOYEE' || !u.role?.includes('ADMIN')).length}
+              </p>
+              <p className="text-[11px] text-yellow-400/80 mt-1">Granted AI Listing & ATS Review Permissions</p>
+            </div>
+
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Platform Administrators</p>
+              <p className="text-3xl font-extrabold text-purple-400 mt-1">
+                {teamMembers.filter(u => u.role === 'ROLE_ADMIN' || u.role === 'ADMIN').length}
+              </p>
+              <p className="text-[11px] text-purple-400/80 mt-1">Full Governance & Clearance</p>
+            </div>
+
+            <div className="bg-[#222228] border border-gray-800 p-5 rounded-3xl">
+              <p className="text-xs text-gray-400 font-semibold">Total Provisioned Accounts</p>
+              <p className="text-3xl font-extrabold text-emerald-400 mt-1">{teamMembers.length}</p>
+              <p className="text-[11px] text-emerald-400/80 mt-1">Active Cleared Enterprise Seats</p>
+            </div>
+          </div>
+
+          {/* Search Bar & Action Buttons */}
+          <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="relative w-full sm:w-80">
+                <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter team members by name, email, role..."
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  onClick={() => setShowDeployModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition shadow-lg shadow-yellow-500/20 active:scale-95 whitespace-nowrap"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Deploy Employee or Admin</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Team Members List */}
+            {teamLoading ? (
+              <div className="p-12 text-center text-gray-400 text-xs">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-yellow-400" />
+                Loading deployed personnel...
+              </div>
+            ) : filteredTeam.length === 0 ? (
+              <div className="p-12 text-center text-gray-500 text-xs border border-dashed border-gray-800 rounded-2xl">
+                No team members found matching your search. Click "+ Deploy Employee or Admin" to provision access.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-gray-300">
+                  <thead className="bg-[#18181c] text-gray-400 uppercase text-[10px] font-bold tracking-wider border-b border-gray-800">
+                    <tr>
+                      <th className="px-4 py-3 rounded-l-xl">Personnel</th>
+                      <th className="px-4 py-3">Assigned Role</th>
+                      <th className="px-4 py-3">Company / Org</th>
+                      <th className="px-4 py-3">Title</th>
+                      <th className="px-4 py-3">Clearance Status</th>
+                      <th className="px-4 py-3 text-right rounded-r-xl">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800/60">
+                    {filteredTeam.map((member, idx) => {
+                      const isAdminRole = member.role === 'ROLE_ADMIN' || member.role === 'ADMIN';
+                      return (
+                        <tr key={member.id || member.email || idx} className="hover:bg-gray-800/30 transition">
+                          <td className="px-4 py-3.5 flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                              isAdminRole ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'bg-yellow-400/20 text-yellow-300 border border-yellow-500/40'
+                            }`}>
+                              {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-xs">{member.name}</p>
+                              <p className="text-[11px] text-gray-400">{member.email}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {isAdminRole ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-500/10 border border-purple-500/30 text-purple-300">
+                                <Shield className="w-3 h-3 text-purple-400" /> Platform Admin
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-yellow-400/10 border border-yellow-500/30 text-yellow-400">
+                                <Briefcase className="w-3 h-3 text-yellow-400" /> Company Recruiter
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 font-medium text-gray-300">
+                            {member.company || (isAdminRole ? 'JobProof Core' : 'Google')}
+                          </td>
+                          <td className="px-4 py-3.5 text-gray-400">
+                            {member.title || (isAdminRole ? 'Platform Governance' : 'Hiring Partner')}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <span className="inline-flex items-center gap-1.5 text-emerald-400 text-[11px] font-bold">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                              Active Clearance
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <button
+                              onClick={() => handleDeleteTeamMember(member)}
+                              className="p-1.5 text-gray-400 hover:text-red-400 rounded-lg hover:bg-gray-800 transition"
+                              title="Revoke clearance and remove"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* EDIT & GRANT PERMISSION MODAL */}
       {editingJob && (
         <EditAndGrantPermissionModal
@@ -832,6 +1368,22 @@ export default function EmployeeControlSection({ liveJobs = [], currentUser, onP
           onStatusUpdated={(updated) => {
             setApplications(prev => prev.map(a => a.id === updated.id ? updated : a));
             setSelectedApplication(updated);
+          }}
+        />
+      )}
+
+      {/* DEPLOY EMPLOYEE / ADMIN MODAL */}
+      {showDeployModal && (
+        <DeployUserModal
+          onClose={() => setShowDeployModal(false)}
+          onUserDeployed={(newUsers) => {
+            setTeamMembers(prev => [...newUsers, ...prev]);
+            fetchTeamMembers();
+            setActionNotice({
+              type: 'success',
+              msg: `Successfully deployed ${newUsers.length} team account(s)! They can now log in directly.`
+            });
+            setTimeout(() => setActionNotice(null), 5000);
           }}
         />
       )}

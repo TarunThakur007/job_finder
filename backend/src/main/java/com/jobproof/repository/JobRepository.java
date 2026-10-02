@@ -7,9 +7,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+// Spring Data JPA repository for Job entity
 @Repository
 public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificationExecutor<Job> {
 
@@ -22,6 +24,8 @@ public interface JobRepository extends JpaRepository<Job, Long>, JpaSpecificatio
     List<Job> findByTrustScoreGreaterThanEqual(Integer minScore);
 
     List<Job> findByVerificationStatus(Job.VerificationStatus status);
+
+    List<Job> findByVerificationStatusIn(Collection<Job.VerificationStatus> statuses);
 
     @Query("SELECT j FROM Job j WHERE " +
            "LOWER(j.title) LIKE LOWER(CONCAT('%', :query, '%')) OR " +

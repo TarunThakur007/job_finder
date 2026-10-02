@@ -20,13 +20,26 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
+export default function ResumeAnalyzerSection({ 
+  liveJobs = [], 
+  onSelectJob,
+  currentUser,
+  onRequireRegistration
+}) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [targetRole, setTargetRole] = useState('Senior Java Backend Engineer');
   const [isDragOver, setIsDragOver] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [parsingStep, setParsingStep] = useState(0);
   const [activeResultTab, setActiveResultTab] = useState('overview');
+
+  const checkDemoRestriction = () => {
+    if (currentUser?.isDemo) {
+      onRequireRegistration && onRequireRegistration("AI Resume Analysis and ATS Scorecard features require a candidate account. Please register to analyze your resume.");
+      return true;
+    }
+    return false;
+  };
 
   // Sample Resumes Presets for instant demonstration
   const sampleResumes = [
@@ -59,34 +72,8 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
     },
     {
       id: 'sample-2',
-      name: 'Priya_Sharma_FullStack_React_Developer.pdf',
-      role: 'Full Stack React & Spring Boot Developer',
-      size: '190 KB',
-      type: 'application/pdf',
-      skills: ['React.js', 'JavaScript (ES6+)', 'TypeScript', 'Node.js', 'Tailwind CSS', 'Redux', 'Spring Boot', 'REST APIs'],
-      missingSkills: ['Docker', 'AWS S3', 'GraphQL'],
-      atsScore: 88,
-      formattingScore: 90,
-      keywordScore: 86,
-      impactScore: 88,
-      summary: 'Versatile Full Stack developer with core frontend strengths in React and UI components paired with Spring Boot APIs.',
-      strengths: [
-        'Clean section headers with standard chronological work experience format',
-        'High density of frontend component library keywords'
-      ],
-      warnings: [
-        'Contact header is missing a direct LinkedIn URL',
-        'Two bullet points lack strong action verbs'
-      ],
-      recommendations: [
-        'Mention state management optimization achievements',
-        'Add Docker deployment keywords to match enterprise job requirements'
-      ]
-    },
-    {
-      id: 'sample-3',
-      name: 'Rohan_Verma_Data_AI_Pipeline_Engineer.pdf',
-      role: 'AI & Data Pipeline Engineer',
+      name: 'Taylor_Swift_Data_Engineer_Resume.pdf',
+      role: 'Data Science & Machine Learning Lead',
       size: '310 KB',
       type: 'application/pdf',
       skills: ['Python', 'PyTorch', 'Apache Spark', 'SQL', 'FastAPI', 'Pandas', 'Docker', 'Airflow'],
@@ -138,19 +125,29 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
         const resultAnalysis = {
           id: 'api-' + Date.now(),
           name: data.filename || payload.filename,
-          role: data.targetJobRole || roleTitle,
-          size: fileObj ? `${(fileObj.size / 1024).toFixed(0)} KB` : '245 KB',
-          type: data.fileType || 'application/pdf',
-          skills: data.extractedSkills || ['Java', 'Spring Boot', 'React', 'REST API', 'SQL'],
-          missingSkills: data.missingCriticalSkills || ['Kafka', 'GraphQL'],
+          role: data.targetJobRole || payload.targetJobRole,
+          size: `${Math.round(payload.fileSizeBytes / 1024)} KB`,
+          type: 'application/pdf',
+          skills: (data.extractedSkills && data.extractedSkills.length > 0) 
+            ? data.extractedSkills 
+            : ['Java 17', 'Spring Boot', 'PostgreSQL', 'Microservices', 'Docker', 'Redis', 'REST API', 'Git'],
+          missingSkills: (data.missingKeywords && data.missingKeywords.length > 0)
+            ? data.missingKeywords
+            : ['Kafka', 'Kubernetes'],
           atsScore: data.overallAtsScore || 94,
           formattingScore: data.formattingScore || 96,
           keywordScore: data.keywordMatchScore || 92,
-          impactScore: data.impactVerbScore || 90,
-          summary: data.summary || `Resume evaluated for ${roleTitle} via Google Gemini AI engine.`,
-          strengths: data.strengths || ['High ATS readability score', 'Verified skills match'],
-          warnings: data.formattingWarnings || ['Ensure standard font size'],
-          recommendations: data.improvementRecommendations || ['Add quantifiable metric metrics']
+          impactScore: data.actionVerbScore || 90,
+          summary: data.executiveSummary || 'Verified ATS compliant engineering profile.',
+          strengths: (data.bulletStrengths && data.bulletStrengths.length > 0) 
+            ? data.bulletStrengths 
+            : ['Demonstrated quantifiable accomplishments', 'High keyword relevance'],
+          warnings: (data.atsWarnings && data.atsWarnings.length > 0)
+            ? data.atsWarnings
+            : ['Keep contact information in the body rather than header/footer for older ATS parsers.'],
+          recommendations: (data.tailoredRecommendations && data.tailoredRecommendations.length > 0)
+            ? data.tailoredRecommendations
+            : ['Incorporate target role keywords in current experience section.']
         };
         setCurrentAnalysis(resultAnalysis);
       })
@@ -164,6 +161,7 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
   const handleFileDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
+    if (checkDemoRestriction()) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
       setSelectedFile(file);
@@ -172,6 +170,7 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
   };
 
   const handleFileInputChange = (e) => {
+    if (checkDemoRestriction()) return;
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setSelectedFile(file);
@@ -180,6 +179,7 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
   };
 
   const handleSelectSample = (sample) => {
+    if (checkDemoRestriction()) return;
     setSelectedFile(null);
     setTargetRole(sample.role);
     runAnalysisProcess(null, sample.role);
@@ -207,6 +207,24 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
 
   return (
     <div className="space-y-8 animate-fadeIn">
+      {/* Demo Account Restriction Notice */}
+      {currentUser?.isDemo && (
+        <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-xs font-semibold flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+            <span>
+              <strong className="text-yellow-400">Account Registration Required:</strong> You are currently in view-only Demo Mode. Register your free candidate account to analyze your personal resume, unlock custom ATS scoring, and match with employers.
+            </span>
+          </div>
+          <button
+            onClick={() => onRequireRegistration && onRequireRegistration("Create your candidate account to upload and analyze your resume with AI.")}
+            className="px-4 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs transition shadow-md shadow-yellow-500/20 whitespace-nowrap flex-shrink-0 active:scale-95"
+          >
+            Register for Full Access →
+          </button>
+        </div>
+      )}
+
       {/* Hero Header Card */}
       <div className="bg-[#222228] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-yellow-500/30 relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -242,21 +260,21 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
         {/* Upload Box (2 Cols) */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-2 bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <UploadCloud className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <UploadCloud className="w-5 h-5 text-yellow-400" />
                 Upload Resume Document
               </h3>
-              <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
+              <span className="text-xs font-medium text-gray-400">
                 Supports PDF, DOCX, TXT (Max 10MB)
               </span>
             </div>
 
             {/* Target Role Selector */}
             <div className="mb-5">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              <label className="block text-xs font-bold text-gray-300 mb-1.5">
                 Benchmark Target Job Role
               </label>
               <select
@@ -265,7 +283,7 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                   setTargetRole(e.target.value);
                   runAnalysisProcess(selectedFile, e.target.value);
                 }}
-                className="w-full px-4 py-2.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100 font-medium"
+                className="w-full px-4 py-2.5 text-xs sm:text-sm bg-[#18181c] border border-gray-800 rounded-2xl focus:outline-none focus:border-yellow-400 text-white font-medium"
               >
                 <option value="Senior Java Backend Engineer">Senior Java Backend Engineer</option>
                 <option value="Full Stack React & Spring Boot Developer">Full Stack React & Spring Boot Developer</option>
@@ -282,8 +300,8 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
               onDrop={handleFileDrop}
               className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
                 isDragOver
-                  ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 scale-[1.01]'
-                  : 'border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 bg-slate-50/60 dark:bg-slate-800/40'
+                  ? 'border-yellow-400 bg-yellow-500/10 scale-[1.01]'
+                  : 'border-gray-800 hover:border-yellow-400/50 bg-[#18181c]'
               }`}
             >
               <input
@@ -295,14 +313,14 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
               />
 
               <label htmlFor="resume-file-input" className="cursor-pointer flex flex-col items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-inner">
+                <div className="w-14 h-14 rounded-2xl bg-yellow-400/10 text-yellow-400 border border-yellow-500/30 flex items-center justify-center shadow-inner">
                   <UploadCloud className="w-7 h-7" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                    Drag & drop your resume file here or <span className="text-blue-600 dark:text-blue-400 underline">Browse</span>
+                  <p className="text-sm font-bold text-white">
+                    Drag & drop your resume file here or <span className="text-yellow-400 underline font-extrabold">Browse</span>
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     AI engine will automatically extract skills, format metrics, and match against active jobs.
                   </p>
                 </div>
@@ -311,8 +329,8 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
           </div>
 
           {/* Preset Sample Resume Selector Bar */}
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+          <div className="mt-6 pt-5 border-t border-gray-800">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
               Or Try One-Click Sample Presets:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -322,16 +340,16 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                   onClick={() => handleSelectSample(sample)}
                   className={`p-3 rounded-2xl text-left border transition-all flex items-start gap-2.5 ${
                     currentAnalysis?.id === sample.id
-                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-500 shadow-xs'
-                      : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      ? 'bg-yellow-400/10 border-yellow-500/50 text-white shadow-sm'
+                      : 'bg-[#18181c] border-gray-800 text-gray-300 hover:text-white hover:bg-gray-800/60'
                   }`}
                 >
-                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <FileText className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    <p className="text-xs font-bold text-white truncate">
                       {sample.name.split('_')[0]}'s Resume
                     </p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                    <p className="text-[10px] text-gray-400 truncate">
                       {sample.role}
                     </p>
                   </div>
@@ -342,25 +360,25 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
         </div>
 
         {/* Current Upload Summary Card (1 Col) */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+        <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-yellow-400" />
               Active File Details
             </h3>
 
             {currentAnalysis ? (
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700">
+                <div className="p-4 rounded-2xl bg-[#18181c] border border-gray-800">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-yellow-400 text-gray-950 font-black text-xs flex items-center justify-center">
                       PDF
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                      <p className="text-xs font-bold text-white truncate">
                         {selectedFile ? selectedFile.name : currentAnalysis.name}
                       </p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-gray-400">
                         Size: {selectedFile ? `${(selectedFile.size / 1024).toFixed(0)} KB` : currentAnalysis.size}
                       </p>
                     </div>
@@ -368,26 +386,26 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Target Role:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 text-right">{targetRole}</span>
+                  <div className="flex justify-between py-1 border-b border-gray-800">
+                    <span className="text-gray-400">Target Role:</span>
+                    <span className="font-bold text-white text-right">{targetRole}</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Extracted Skills:</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{currentAnalysis.skills.length} detected</span>
+                  <div className="flex justify-between py-1 border-b border-gray-800">
+                    <span className="text-gray-400">Extracted Skills:</span>
+                    <span className="font-bold text-emerald-400">{currentAnalysis.skills.length} detected</span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-slate-500 dark:text-slate-400">Skill Gaps:</span>
-                    <span className="font-bold text-amber-500">{currentAnalysis.missingSkills.length} missing</span>
+                  <div className="flex justify-between py-1 border-b border-gray-800">
+                    <span className="text-gray-400">Skill Gaps:</span>
+                    <span className="font-bold text-amber-400">{currentAnalysis.missingSkills.length} missing</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-500 dark:text-slate-400">ATS Formatting:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">Pass ({currentAnalysis.formattingScore}%)</span>
+                    <span className="text-gray-400">ATS Formatting:</span>
+                    <span className="font-bold text-yellow-400">Pass ({currentAnalysis.formattingScore}%)</span>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="py-12 text-center text-slate-400 text-xs">
+              <div className="py-12 text-center text-gray-500 text-xs">
                 No resume selected yet. Upload a file above or click a sample preset.
               </div>
             )}
@@ -396,16 +414,16 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
           <button
             onClick={() => runAnalysisProcess(selectedFile, targetRole)}
             disabled={isAnalyzing}
-            className="w-full mt-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2"
+            className="w-full mt-6 py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-extrabold text-xs rounded-2xl shadow-lg shadow-yellow-500/20 transition flex items-center justify-center gap-2 active:scale-95"
           >
             {isAnalyzing ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin text-gray-950" />
                 Parsing & Calculating ATS Score...
               </>
             ) : (
               <>
-                <Zap className="w-4 h-4" />
+                <Zap className="w-4 h-4 text-gray-950" />
                 Re-Run AI ATS Analysis
               </>
             )}
@@ -415,20 +433,20 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
 
       {/* Processing Animation Overlay Banner */}
       {isAnalyzing && (
-        <div className="bg-slate-900 border border-blue-500/40 rounded-3xl p-6 text-white text-center space-y-3 animate-pulse">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-semibold">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+        <div className="bg-[#222228] border border-yellow-500/40 rounded-3xl p-6 text-white text-center space-y-3 animate-pulse">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/30 text-yellow-400 text-xs font-semibold">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-yellow-400" />
             <span>AI Parser Active</span>
           </div>
-          <p className="text-base font-bold">
+          <p className="text-base font-bold text-white">
             {parsingStep === 1 && '1/4 Extracting text content & metadata...'}
             {parsingStep === 2 && '2/4 Scanning technical skills & experience...'}
             {parsingStep === 3 && '3/4 Evaluating ATS layout & keyword density...'}
             {parsingStep === 4 && '4/4 Benchmark scoring against target role...'}
           </p>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden max-w-md mx-auto">
+          <div className="w-full bg-[#18181c] border border-gray-800 h-2.5 rounded-full overflow-hidden max-w-md mx-auto">
             <div 
-              className="bg-gradient-to-r from-blue-500 to-emerald-400 h-full transition-all duration-300"
+              className="bg-gradient-to-r from-yellow-400 to-amber-500 h-full transition-all duration-300"
               style={{ width: `${parsingStep * 25}%` }}
             ></div>
           </div>
@@ -442,11 +460,11 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
           {/* Top Score Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Overall ATS Score Gauge Card */}
-            <div className="bg-gradient-to-br from-slate-900 to-blue-950 text-white border border-blue-500/30 rounded-3xl p-5 shadow-md flex items-center justify-between">
+            <div className="bg-gradient-to-br from-[#18181c] via-[#222228] to-[#141417] text-white border border-yellow-500/30 rounded-3xl p-5 shadow-xl flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-slate-300">Overall ATS Score</p>
+                <p className="text-xs font-semibold text-gray-300">Overall ATS Score</p>
                 <p className="text-3xl font-black text-emerald-400 mt-1">{currentAnalysis.atsScore}%</p>
-                <p className="text-[10px] text-slate-400 mt-1">Excellent match probability</p>
+                <p className="text-[10px] text-gray-400 mt-1">High interview probability</p>
               </div>
               <div className="w-14 h-14 rounded-full border-4 border-emerald-400 flex items-center justify-center font-extrabold text-sm text-emerald-400">
                 {currentAnalysis.atsScore}%
@@ -454,68 +472,72 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
             </div>
 
             {/* Formatting Score */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
+            <div className="bg-[#222228] border border-gray-800 rounded-3xl p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">ATS Structure</span>
-                <CheckCircle2 className="w-4 h-4 text-blue-500" />
+                <span className="text-xs font-semibold text-gray-400">ATS Structure</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">{currentAnalysis.formattingScore}%</p>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">Clean single column</p>
+              <p className="text-2xl font-bold text-white mt-2">{currentAnalysis.formattingScore}%</p>
+              <p className="text-[11px] text-emerald-400 font-medium mt-1">Clean single column layout</p>
             </div>
 
             {/* Technical Keyword Match */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
+            <div className="bg-[#222228] border border-gray-800 rounded-3xl p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Keyword Match</span>
-                <Award className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-semibold text-gray-400">Keyword Match</span>
+                <Award className="w-4 h-4 text-yellow-400" />
               </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">{currentAnalysis.keywordScore}%</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{currentAnalysis.skills.length} matched keywords</p>
+              <p className="text-2xl font-bold text-white mt-2">{currentAnalysis.keywordScore}%</p>
+              <p className="text-[11px] text-gray-400 mt-1">{currentAnalysis.skills.length} matched keywords</p>
             </div>
 
             {/* Impact & Verbs */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
+            <div className="bg-[#222228] border border-gray-800 rounded-3xl p-5 shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Action Verbs & Impact</span>
-                <Zap className="w-4 h-4 text-indigo-500" />
+                <span className="text-xs font-semibold text-gray-400">Action Verbs & Impact</span>
+                <Zap className="w-4 h-4 text-yellow-400" />
               </div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">{currentAnalysis.impactScore}%</p>
-              <p className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium mt-1">Metric bullet density</p>
+              <p className="text-2xl font-bold text-white mt-2">{currentAnalysis.impactScore}%</p>
+              <p className="text-[11px] text-yellow-400 font-medium mt-1">High metric bullet density</p>
             </div>
           </div>
 
           {/* Results Tab Navigation */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-2 flex items-center gap-2 overflow-x-auto text-xs font-semibold">
+          <div className="bg-[#222228] border border-gray-800 rounded-3xl p-2 flex items-center gap-2 overflow-x-auto text-xs font-semibold">
             <button
               onClick={() => setActiveResultTab('overview')}
-              className={`px-4 py-2.5 rounded-2xl transition ${
+              className={`px-4 py-2.5 rounded-2xl transition font-bold ${
                 activeResultTab === 'overview'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-yellow-400 text-gray-950 shadow-sm'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/60'
               }`}
             >
               Extracted Skills & Gaps
             </button>
             <button
               onClick={() => setActiveResultTab('recommendations')}
-              className={`px-4 py-2.5 rounded-2xl transition ${
+              className={`px-4 py-2.5 rounded-2xl transition font-bold ${
                 activeResultTab === 'recommendations'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-yellow-400 text-gray-950 shadow-sm'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/60'
               }`}
             >
               AI Suggestions & Fixes
             </button>
             <button
               onClick={() => setActiveResultTab('job-matches')}
-              className={`px-4 py-2.5 rounded-2xl transition flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-2xl transition font-bold flex items-center gap-2 ${
                 activeResultTab === 'job-matches'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-yellow-400 text-gray-950 shadow-sm'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800/60'
               }`}
             >
               Matching Verified Jobs
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeResultTab === 'job-matches'
+                  ? 'bg-gray-950/20 text-gray-950'
+                  : 'bg-emerald-500/20 text-emerald-400'
+              }`}>
                 {matchingJobs.length}
               </span>
             </button>
@@ -526,13 +548,13 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               
               {/* Detected Skills */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     Detected Technical Skills ({currentAnalysis.skills.length})
                   </h4>
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                  <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full">
                     Match Verified
                   </span>
                 </div>
@@ -541,23 +563,23 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                   {currentAnalysis.skills.map((skill, idx) => (
                     <span
                       key={idx}
-                      className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center gap-1.5"
+                      className="px-3 py-1.5 rounded-xl bg-[#18181c] border border-gray-800 text-gray-200 text-xs font-bold flex items-center gap-1.5"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400" />
                       {skill}
                     </span>
                   ))}
                 </div>
 
                 {/* Key Strengths */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                <div className="pt-4 border-t border-gray-800 space-y-2">
+                  <p className="text-xs font-bold text-gray-300 uppercase tracking-wider">
                     Resume Highlights & Strengths
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <ul className="space-y-2 text-xs text-gray-300">
                     {currentAnalysis.strengths.map((str, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <span className="text-emerald-500 font-bold">•</span>
+                        <span className="text-emerald-400 font-bold">•</span>
                         <span>{str}</span>
                       </li>
                     ))}
@@ -566,28 +588,28 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
               </div>
 
               {/* Missing Critical Skills & Warnings */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+              <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
                     Missing Target Skills & Warnings
                   </h4>
-                  <span className="text-xs text-amber-600 font-semibold bg-amber-500/10 px-2.5 py-1 rounded-full">
+                  <span className="text-xs text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-full">
                     Optimization Recommended
                   </span>
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">
                     Missing Keywords for {targetRole}:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {currentAnalysis.missingSkills.map((mSkill, idx) => (
                       <span
                         key={idx}
-                        className="px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5"
+                        className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-1.5"
                       >
-                        <XCircle className="w-3.5 h-3.5 text-amber-500" />
+                        <XCircle className="w-3.5 h-3.5 text-amber-400" />
                         {mSkill}
                       </span>
                     ))}
@@ -595,14 +617,14 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                 </div>
 
                 {/* Warnings List */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                <div className="pt-4 border-t border-gray-800 space-y-2">
+                  <p className="text-xs font-bold text-gray-300 uppercase tracking-wider">
                     Formatting & Scanner Alerts
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                  <ul className="space-y-2 text-xs text-gray-300">
                     {currentAnalysis.warnings.map((warn, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-amber-700 dark:text-amber-300">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <li key={idx} className="flex items-start gap-2 text-amber-300">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
                         <span>{warn}</span>
                       </li>
                     ))}
@@ -614,13 +636,13 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
 
           {/* TAB 2: AI Suggestions & Fixes */}
           {activeResultTab === 'recommendations' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+            <div className="bg-[#222228] border border-gray-800 rounded-3xl p-6 shadow-xl space-y-6">
               <div>
-                <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 mb-2">
-                  <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h4 className="text-base font-bold text-white flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-yellow-400" />
                   Actionable AI Improvement Steps
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-gray-400">
                   Follow these step-by-step recommendations to elevate your resume ATS score to 98%+.
                 </p>
               </div>
@@ -629,12 +651,12 @@ export default function ResumeAnalyzerSection({ liveJobs = [], onSelectJob }) {
                 {currentAnalysis.recommendations.map((rec, idx) => (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/80 flex items-start gap-3.5"
+                    className="p-4 rounded-2xl bg-[#18181c] border border-gray-800 flex items-start gap-3.5"
                   >
-                    <div className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
+                    <div className="w-7 h-7 rounded-xl bg-yellow-400 text-gray-950 font-black text-xs flex items-center justify-center flex-shrink-0">
                       {idx + 1}
                     </div>
-                    <div className="text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
+                    <div className="text-xs text-gray-200 font-medium leading-relaxed">
                       {rec}
                     </div>
                   </div>

@@ -44,6 +44,7 @@ public class JobController {
         return ResponseEntity.ok(jobService.searchJobs(q));
     }
 
+
     @PostMapping
     public ResponseEntity<JobDTO> createAndVerifyJob(@RequestBody JobDTO dto) {
         JobDTO created = jobService.createAndVerifyJob(dto);

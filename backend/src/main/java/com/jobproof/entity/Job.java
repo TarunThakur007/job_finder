@@ -42,10 +42,11 @@ public class Job {
     @Column(name = "is_salary_estimated")
     private Boolean isSalaryEstimated;
 
-    @Column(length = 3000)
+    @Lob
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(length = 2000)
+    @Column(length = 4000)
     private String summary;
 
     @Column(name = "selection_process", length = 2000)
@@ -243,6 +244,7 @@ public class Job {
         HIGHLY_TRUSTED,
         TRUSTED,
         NEEDS_REVIEW,
-        HIGH_RISK
+        HIGH_RISK,
+        CLOSED
     }
 }

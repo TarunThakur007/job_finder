@@ -17,7 +17,35 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/**", "/api/employee/**", "/api/applications/**", "/api/public/**", "/api/jobs/**", "/api/companies/**", "/api/ai/**", "/api/health/**", "/api/resumes/**", "/h2-console/**").permitAll()
+                .requestMatchers(
+                    "/api/auth",
+                    "/api/auth/**", 
+                    "/api/experiences",
+                    "/api/experiences/**", 
+                    "/api/users",
+                    "/api/users/**",
+                    "/api/admin",
+                    "/api/admin/**", 
+                    "/api/employee",
+                    "/api/employee/**", 
+                    "/api/applications",
+                    "/api/applications/**", 
+                    "/api/public",
+                    "/api/public/**", 
+                    "/api/jobs",
+                    "/api/jobs/**", 
+                    "/api/companies",
+                    "/api/companies/**", 
+                    "/api/ai",
+                    "/api/ai/**", 
+                    "/api/health",
+                    "/api/health/**", 
+                    "/api/resumes",
+                    "/api/resumes/**", 
+                    "/api/notifications",
+                    "/api/notifications/**",
+                    "/h2-console/**"
+                ).permitAll()
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers.frameOptions(frame -> frame.disable()));
