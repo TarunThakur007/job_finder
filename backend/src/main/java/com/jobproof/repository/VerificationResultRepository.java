@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface VerificationResultRepository extends JpaRepository<VerificationResult, Long> {
     Optional<VerificationResult> findByJob(Job job);
     Optional<VerificationResult> findByJobId(Long jobId);
+    void deleteByJob(Job job);
+    void deleteByJobId(Long jobId);
 }

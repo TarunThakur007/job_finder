@@ -31,7 +31,7 @@ export default function ExperienceBoardSection({
   const fetchExperiences = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8081/api/experiences');
+      const res = await fetch('/api/experiences');
       if (res.ok) {
         const data = await res.json();
         setExperiences(data);
@@ -133,7 +133,7 @@ export default function ExperienceBoardSection({
     }));
 
     try {
-      await fetch(`http://localhost:8081/api/experiences/${id}/upvote`, { method: 'POST' });
+      await fetch(`/api/experiences/${id}/upvote`, { method: 'POST' });
     } catch (e) {}
   };
 

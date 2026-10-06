@@ -28,11 +28,15 @@ public class JobDTO {
     private LocalDateTime lastVerified;
     private List<String> skills;
     private List<String> evidence;
-    private Integer vacanciesCount = 3;
+    private Integer vacanciesCount;
 
     public JobDTO() {}
 
     public JobDTO(Long id, String title, CompanyDTO company, String role, String experienceLevel, String location, String employmentType, Double salaryMin, Double salaryMax, String salaryCurrency, Boolean isSalaryEstimated, String salaryDisplay, String description, String summary, List<String> selectionProcess, String applyUrl, String source, String sourceJobId, Integer trustScore, String verificationStatus, LocalDateTime postedDate, LocalDateTime lastVerified, List<String> skills, List<String> evidence) {
+        this(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, salaryDisplay, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills, evidence, null);
+    }
+
+    public JobDTO(Long id, String title, CompanyDTO company, String role, String experienceLevel, String location, String employmentType, Double salaryMin, Double salaryMax, String salaryCurrency, Boolean isSalaryEstimated, String salaryDisplay, String description, String summary, List<String> selectionProcess, String applyUrl, String source, String sourceJobId, Integer trustScore, String verificationStatus, LocalDateTime postedDate, LocalDateTime lastVerified, List<String> skills, List<String> evidence, Integer vacanciesCount) {
         this.id = id;
         this.title = title;
         this.company = company;
@@ -57,6 +61,7 @@ public class JobDTO {
         this.lastVerified = lastVerified;
         this.skills = skills;
         this.evidence = evidence;
+        this.vacanciesCount = vacanciesCount;
     }
 
     public Long getId() { return id; }
@@ -131,6 +136,9 @@ public class JobDTO {
     public List<String> getEvidence() { return evidence; }
     public void setEvidence(List<String> evidence) { this.evidence = evidence; }
 
+    public Integer getVacanciesCount() { return vacanciesCount != null ? vacanciesCount : 1; }
+    public void setVacanciesCount(Integer vacanciesCount) { this.vacanciesCount = vacanciesCount; }
+
     public static JobDTOBuilder builder() { return new JobDTOBuilder(); }
 
     public static class JobDTOBuilder {
@@ -158,6 +166,7 @@ public class JobDTO {
         private LocalDateTime lastVerified;
         private List<String> skills;
         private List<String> evidence;
+        private Integer vacanciesCount;
 
         public JobDTOBuilder id(Long id) { this.id = id; return this; }
         public JobDTOBuilder title(String title) { this.title = title; return this; }
@@ -183,9 +192,10 @@ public class JobDTO {
         public JobDTOBuilder lastVerified(LocalDateTime lastVerified) { this.lastVerified = lastVerified; return this; }
         public JobDTOBuilder skills(List<String> skills) { this.skills = skills; return this; }
         public JobDTOBuilder evidence(List<String> evidence) { this.evidence = evidence; return this; }
+        public JobDTOBuilder vacanciesCount(Integer vacanciesCount) { this.vacanciesCount = vacanciesCount; return this; }
 
         public JobDTO build() {
-            return new JobDTO(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, salaryDisplay, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills, evidence);
+            return new JobDTO(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, salaryDisplay, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills, evidence, vacanciesCount);
         }
     }
 }

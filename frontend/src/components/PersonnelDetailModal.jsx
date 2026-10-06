@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   X, 
   Shield, 
@@ -82,7 +81,7 @@ export default function PersonnelDetailModal({
           <div className="flex items-center gap-3.5">
             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl select-none shadow-md border-2 ${
               isAdmin 
-                ? 'bg-purple-950/60 border-purple-400 text-purple-200' 
+                ? 'bg-yellow-500/10 border-yellow-400 text-yellow-200' 
                 : 'bg-yellow-400/10 border-yellow-400 text-yellow-300'
             }`}>
               {member.avatar || '👤'}
@@ -92,10 +91,10 @@ export default function PersonnelDetailModal({
                 <h2 className="text-xl sm:text-2xl font-black text-white">{member.name}</h2>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
                   isAdmin
-                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                    ? 'bg-yellow-400/15 border border-yellow-500/30 text-yellow-300'
                     : 'bg-yellow-400/20 border border-yellow-500/40 text-yellow-300'
                 }`}>
-                  {isAdmin ? <Shield className="w-3 h-3 text-purple-400" /> : <Briefcase className="w-3 h-3 text-yellow-400" />}
+                  {isAdmin ? <Shield className="w-3 h-3 text-yellow-400" /> : <Briefcase className="w-3 h-3 text-yellow-400" />}
                   {isAdmin ? 'Platform Administrator' : 'Company Employee / Recruiter'}
                 </span>
               </div>
@@ -130,7 +129,7 @@ export default function PersonnelDetailModal({
 
           <div className="p-3.5 rounded-2xl bg-[#18181c] border border-gray-800 space-y-1">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+              <ShieldCheck className="w-3.5 h-3.5 text-yellow-400" />
               Deployer / Author Attribution
             </span>
             <p className="font-extrabold text-white text-sm">

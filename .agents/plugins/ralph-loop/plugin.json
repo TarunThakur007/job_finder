@@ -1,0 +1,5 @@
+{
+  "name": "ralph-loop",
+  "version": "1.0.0",
+  "description": "Ralph Autonomous Loop: Self-evaluating, iterative execution loop for Antigravity that repeats verify-fail-heal cycles until 100% acceptance."
+}

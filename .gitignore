@@ -19,6 +19,12 @@ $RECYCLE.BIN/
 *.pem
 *.key
 
+# Database
+*.mv.db
+*.trace.db
+backend/data/
+**/data/*.mv.db
+
 # Java & Maven
 target/
 **/target/

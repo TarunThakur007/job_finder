@@ -16,4 +16,6 @@ public interface EmployeeNotificationRepository extends JpaRepository<EmployeeNo
     long countByIsReadFalse();
 
     boolean existsByJobIdAndType(Long jobId, String type);
+
+    void deleteByJobId(Long jobId);
 }

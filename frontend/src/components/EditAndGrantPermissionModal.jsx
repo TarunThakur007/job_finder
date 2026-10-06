@@ -31,6 +31,7 @@ export default function EditAndGrantPermissionModal({ job, onClose, onPermission
     experienceLevel: job.experienceLevel || '3-5 years',
     salaryMin: job.salaryMin || 120000,
     salaryMax: job.salaryMax || 180000,
+    vacanciesCount: job.vacanciesCount || 1,
     applyUrl: job.applyUrl || '',
     description: job.description || 'AI agent extracted position description.',
     skills: Array.isArray(job.skills) ? job.skills.join(', ') : (job.skills || 'Java, Spring Boot, React, SQL')
@@ -52,6 +53,7 @@ export default function EditAndGrantPermissionModal({ job, onClose, onPermission
       experienceLevel: formData.experienceLevel,
       salaryMin: parseFloat(formData.salaryMin),
       salaryMax: parseFloat(formData.salaryMax),
+      vacanciesCount: parseInt(formData.vacanciesCount) || 1,
       applyUrl: formData.applyUrl,
       description: formData.description,
       skills: formData.skills.split(',').map(s => s.trim()).filter(Boolean)
@@ -212,8 +214,8 @@ export default function EditAndGrantPermissionModal({ job, onClose, onPermission
             </div>
           </div>
 
-          {/* Salary Min & Max */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Salary Min, Max & Open Vacancies */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-gray-400 mb-1 font-semibold">Salary Range (Min)</label>
               <input
@@ -231,6 +233,22 @@ export default function EditAndGrantPermissionModal({ job, onClose, onPermission
                 value={formData.salaryMax}
                 onChange={(e) => setFormData({ ...formData, salaryMax: e.target.value })}
                 className="w-full bg-[#141417] border border-gray-800 rounded-xl px-3.5 py-2.5 text-white focus:border-yellow-400 focus:outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-gray-400 mb-1 font-semibold flex items-center justify-between">
+                <span>Open Vacancies</span>
+                <span className="text-[10px] text-yellow-400 font-bold">Company Offer</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                required
+                value={formData.vacanciesCount}
+                onChange={(e) => setFormData({ ...formData, vacanciesCount: e.target.value })}
+                className="w-full bg-[#141417] border border-yellow-500/30 rounded-xl px-3.5 py-2.5 text-emerald-400 font-bold focus:border-yellow-400 focus:outline-none"
               />
             </div>
           </div>

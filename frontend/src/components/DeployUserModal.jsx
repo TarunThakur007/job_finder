@@ -173,14 +173,14 @@ export default function DeployUserModal({ onClose, onUserDeployed, initialRole =
           <div className="space-y-1">
             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
               singleForm.role === 'ROLE_ADMIN'
-                ? 'bg-purple-500/15 border border-purple-500/30 text-purple-300'
+                ? 'bg-yellow-400/15 border border-yellow-500/30 text-yellow-300'
                 : 'bg-yellow-400/10 border border-yellow-500/30 text-yellow-400'
             }`}>
-              {singleForm.role === 'ROLE_ADMIN' ? <Shield className="w-3.5 h-3.5 text-purple-400" /> : <UserPlus className="w-3.5 h-3.5 text-yellow-400" />}
+              {singleForm.role === 'ROLE_ADMIN' ? <Shield className="w-3.5 h-3.5 text-yellow-400" /> : <UserPlus className="w-3.5 h-3.5 text-yellow-400" />}
               <span>{singleForm.role === 'ROLE_ADMIN' ? 'Platform Administrator Provisioning' : 'Company Employee Deployment'}</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              Deploy <span className={singleForm.role === 'ROLE_ADMIN' ? 'text-purple-400' : 'text-yellow-400'}>
+              Deploy <span className={singleForm.role === 'ROLE_ADMIN' ? 'text-yellow-400' : 'text-yellow-400'}>
                 {singleForm.role === 'ROLE_ADMIN' ? 'New Platform Admin' : 'New Employee Account'}
               </span>
             </h2>
@@ -263,11 +263,11 @@ export default function DeployUserModal({ onClose, onUserDeployed, initialRole =
                   onClick={() => setSingleForm({ ...singleForm, role: 'ROLE_ADMIN', title: 'Platform Security & Governance Lead' })}
                   className={`p-3.5 rounded-2xl border text-left flex items-start gap-3 transition ${
                     singleForm.role === 'ROLE_ADMIN'
-                      ? 'bg-purple-500/10 border-purple-400 text-white'
+                      ? 'bg-yellow-400/15 border-yellow-400 text-white'
                       : 'bg-[#18181c] border-gray-800 text-gray-400 hover:text-white'
                   }`}
                 >
-                  <Shield className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+                  <Shield className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-extrabold text-white text-xs">Platform Administrator</p>
                     <p className="text-[10px] text-gray-400 mt-0.5">Full governance, security audit, crawls ATS feeds, deploys team members</p>

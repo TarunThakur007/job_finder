@@ -1,0 +1,14 @@
+# JobProof
+
+> Find jobs. Verify jobs. Apply directly.
+
+JobProof is an AI-powered job discovery, verification, and direct-application platform built to eliminate job scams, ghost listings, expired posts, and fake salary estimates.
+
+## Platform APIs
+- [/api/jobs](http://localhost:5173/api/jobs): Authenticated live job listings with multi-point authenticity scores.
+- [/api/health](http://localhost:5173/api/health): Service uptime and operational telemetry endpoint.
+
+## Key Capabilities
+- Direct ATS Ingestion: Integrates with Greenhouse, Lever, Workday, and official employer career portals.
+- 5-Tier Verification Engine: Verifies source truth, SSL status, active requisition codes, and salary transparency.
+- AI Resume Compatibility Analyzer: Analyzes candidate skills against requirements with zero recruiter middlemen.

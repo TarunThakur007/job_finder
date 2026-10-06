@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
@@ -27,12 +28,15 @@ public class JobFreshnessAuditAgent {
     private final JobRepository jobRepository;
     private final EmployeeNotificationRepository notificationRepository;
     private final RestTemplate restTemplate;
+    private final CacheManager cacheManager;
 
     public JobFreshnessAuditAgent(
             JobRepository jobRepository,
-            EmployeeNotificationRepository notificationRepository) {
+            EmployeeNotificationRepository notificationRepository,
+            CacheManager cacheManager) {
         this.jobRepository = jobRepository;
         this.notificationRepository = notificationRepository;
+        this.cacheManager = cacheManager;
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(4000);
@@ -48,10 +52,7 @@ public class JobFreshnessAuditAgent {
      * @return count of closed jobs detected & notified
      */
     public int auditActiveJobs() {
-        List<Job> activeJobs = jobRepository.findByVerificationStatusIn(
-        List.of(Job.VerificationStatus.HIGHLY_TRUSTED, Job.VerificationStatus.TRUSTED)
-        );
-
+        List<Job> activeJobs = jobRepository.findAllActiveWithCompany(Job.VerificationStatus.CLOSED, Job.VerificationStatus.NEEDS_REVIEW);
 
         log.info("[JobFreshnessAuditAgent] Starting hourly audit across {} live job openings...", activeJobs.size());
         int closedCount = 0;
@@ -72,6 +73,30 @@ public class JobFreshnessAuditAgent {
             }
         }
 
+        if (closedCount > 0) {
+            EmployeeNotification summaryNotification = EmployeeNotification.builder()
+                    .jobId(0L)
+                    .jobTitle("Hourly Audit Summary: " + closedCount + " Role(s) Closed")
+                    .companyName("AI Freshness Agent")
+                    .applyUrl("")
+                    .type("HOURLY_AUDIT_SUMMARY")
+                    .reason("Automated Hourly Scan")
+                    .message(String.format("Hourly AI scan complete: Detected that companies have stopped hiring for %d listed role(s). All closed positions have been automatically unlisted from the public website.", closedCount))
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            notificationRepository.save(summaryNotification);
+        }
+
+        if (closedCount > 0 && cacheManager != null) {
+            try {
+                var cache = cacheManager.getCache("jobs");
+                if (cache != null) {
+                    cache.clear();
+                }
+            } catch (Exception ignored) {}
+        }
+
         log.info("[JobFreshnessAuditAgent] Hourly audit completed. {} closed positions detected and notified to employees.", closedCount);
         return closedCount;
     }
@@ -83,7 +108,7 @@ public class JobFreshnessAuditAgent {
         // 1. Immediately remove from live search by setting status to CLOSED
         job.setVerificationStatus(Job.VerificationStatus.CLOSED);
         job.setLastVerified(LocalDateTime.now());
-        job.setSummary("AI Freshness Agent: Employer closed this role (" + reason + ") on " + LocalDateTime.now());
+        job.setSummary("AI Freshness Agent: Employer stopped hiring for this role (" + reason + ") on " + LocalDateTime.now());
         jobRepository.save(job);
 
         // 2. Notify an employee (avoid creating duplicate unread notifications for the same job)
@@ -91,8 +116,8 @@ public class JobFreshnessAuditAgent {
         if (!alreadyNotified) {
             String companyName = job.getCompany() != null ? job.getCompany().getName() : "Employer";
             String alertMessage = String.format(
-                    "The listed vacancy for '%s' at %s is no longer open. The official career endpoint indicates the position has been closed or removed (%s). JobProof has unlisted this role from the public portal.",
-                    job.getTitle(), companyName, reason
+                    "⚠️ Notice: '%s' has stopped hiring for '%s'. Official ATS/career endpoint indicates the position has been closed or removed (%s). JobProof has unlisted this role from the public portal.",
+                    companyName, job.getTitle(), reason
             );
 
             EmployeeNotification notification = EmployeeNotification.builder()

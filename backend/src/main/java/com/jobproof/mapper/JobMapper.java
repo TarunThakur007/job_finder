@@ -99,6 +99,7 @@ public class JobMapper {
                 .lastVerified(job.getLastVerified())
                 .skills(skillList)
                 .evidence(evidenceList)
+                .vacanciesCount(job.getVacanciesCount() != null ? job.getVacanciesCount() : 1)
                 .build();
     }
 

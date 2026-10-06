@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { 
   Anchor, 
   Code2, 
@@ -15,9 +15,16 @@ import {
   Building2,
   CheckCircle2,
   FileText,
-  Key
+  Key,
+  Menu,
+  Sun,
+  Moon,
+  Search
 } from 'lucide-react';
-import ManageAccountModal from './ManageAccountModal';
+
+import ProfileSidebar from './ProfileSidebar';
+
+const ManageAccountModal = lazy(() => import('./ManageAccountModal'));
 
 export default function Header({
   activeTab,
@@ -28,36 +35,22 @@ export default function Header({
   onLoginClick,
   onPostJobClick,
   onRequireRegistration,
-  onUpdateUser
+  onUpdateUser,
+  theme = 'dark',
+  toggleTheme
 }) {
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showProfileSidebar, setShowProfileSidebar] = useState(false);
   const [showManageAccount, setShowManageAccount] = useState(false);
-  const profileMenuRef = useRef(null);
-
-  // Close profile dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-        setShowProfileMenu(false);
-      }
-    }
-    if (showProfileMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showProfileMenu]);
 
   const isAdmin = currentUser?.role === 'ROLE_ADMIN' || currentUser?.role === 'ADMIN';
-  const isEmployee = currentUser?.role === 'ROLE_EMPLOYEE';
+  const isEmployee = currentUser?.role === 'ROLE_EMPLOYEE' || (currentUser?.permissions && currentUser.permissions.length > 0);
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[#18181c]/95 backdrop-blur-md border-b border-gray-800/80 px-4 sm:px-8 py-3.5 transition-colors">
-        <div className="flex items-center justify-between gap-6 max-w-7xl mx-auto">
+      <header className="sticky top-0 z-40 h-16 bg-[#090B0F]/95 backdrop-blur-md border-b border-[#253044]/80 px-4 sm:px-6 lg:px-8 transition-colors flex items-center">
+        <div className="flex items-center justify-between gap-6 max-w-7xl w-full mx-auto">
           
-          {/* Brand Logo */}
+          {/* Brand Logo & Wordmark (JobRadar AI with Concentric Radar Icon) */}
           <div 
             onClick={() => {
               if (isAdmin) {
@@ -68,285 +61,232 @@ export default function Header({
                 setActiveTab('dashboard-overview');
               }
             }} 
-            className="flex items-center gap-2.5 cursor-pointer group"
+            className="flex items-center gap-2.5 cursor-pointer group select-none flex-shrink-0"
           >
-            <div className="w-9 h-9 rounded-xl bg-white p-1 flex items-center justify-center shadow-lg shadow-yellow-500/20 border border-yellow-500/30 group-hover:scale-105 transition-transform overflow-hidden">
-              <img src="/logo.png" alt="JobProof Logo" className="w-full h-full object-contain" />
+            {/* Concentric Radar Icon */}
+            <div className="w-8 h-8 rounded-full border border-teal-400/50 flex items-center justify-center bg-teal-500/10 group-hover:border-teal-400 transition-colors">
+              <div className="w-4 h-4 rounded-full border border-teal-300 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+              </div>
             </div>
-            <div className="flex items-baseline font-black text-xl sm:text-2xl tracking-tight text-white">
-              <span>Job</span>
-              <span className="text-yellow-400">Proof</span>
+            <div className="flex items-baseline font-bold text-lg tracking-tight text-white">
+              <span>JobRadar</span>
+              <span className="text-teal-400 ml-1 font-bold">AI</span>
             </div>
           </div>
 
-          {/* Navigation Tab Links: Only for Candidates / Non-Staff Users */}
-          {isEmployee ? (
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#222228] border border-yellow-500/30 text-xs">
-              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span className="font-extrabold text-white">Employee Workspace</span>
-              <span className="text-gray-600">|</span>
-              <span className="text-yellow-400 font-bold">Permission Grant Center</span>
-            </div>
-          ) : isAdmin ? (
-            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#222228] border border-yellow-500/30 text-xs">
-              <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-              <span className="font-extrabold text-white">Admin Author Console</span>
-              <span className="text-gray-600">|</span>
-              <span className="text-yellow-400 font-bold">Exclusive Admin Authority</span>
-            </div>
-          ) : (
-            <nav className="hidden md:flex items-center gap-1.5 bg-[#222228] p-1.5 rounded-xl border border-gray-800">
-              <button
-                onClick={() => setActiveTab('dashboard-overview')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === 'dashboard-overview'
-                    ? 'bg-yellow-400 text-gray-950 shadow-sm'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
-                }`}
-              >
-                Find Jobs
-              </button>
-              <button
-                onClick={() => {
-                  if (currentUser?.isDemo) {
-                    onRequireRegistration && onRequireRegistration("AI Resume Analysis and ATS Scorecard features require a candidate account. Please register to analyze your resume.");
-                    return;
-                  }
-                  setActiveTab('resume-analyzer');
-                }}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === 'resume-analyzer'
-                    ? 'bg-yellow-400 text-gray-950 shadow-sm'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
-                }`}
-              >
-                Resume AI
-              </button>
-              <button
-                onClick={() => setActiveTab('experience-board')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
-                  activeTab === 'experience-board'
-                    ? 'bg-yellow-400 text-gray-950 shadow-sm'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800/60'
-                }`}
-              >
-                Experiences
-              </button>
-            </nav>
-          )}
+          {/* Navigation Tab Links: Clean Linear Underline Style */}
+          <nav className="hidden md:flex items-center gap-6">
+            {/* Admin Exclusive Navigation */}
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab('admin-panel')}
+                  className={`text-xs transition-all flex items-center gap-1.5 pb-1 ${
+                    activeTab === 'admin-panel'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Admin Console</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('dashboard-overview')}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'dashboard-overview'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Explore Jobs
+                </button>
+              </>
+            )}
 
-          {/* Right Section: Backend Health, Demo Register & User Profile Pill */}
+            {/* Employee Exclusive Navigation */}
+            {isEmployee && !isAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab('employee-panel')}
+                  className={`text-xs transition-all flex items-center gap-1.5 pb-1 ${
+                    activeTab === 'employee-panel'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Briefcase className="w-3.5 h-3.5" />
+                  <span>Employee Portal</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('dashboard-overview')}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'dashboard-overview'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Explore Jobs
+                </button>
+              </>
+            )}
+
+            {/* Candidate & Guest Navigation (Explore Jobs, Resume AI, Job Tracker, Experiences) */}
+            {!isAdmin && !isEmployee && (
+              <>
+                <button
+                  onClick={() => setActiveTab('dashboard-overview')}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'dashboard-overview'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Explore Jobs
+                </button>
+                <button
+                  onClick={() => {
+                    if (currentUser?.isDemo) {
+                      onRequireRegistration && onRequireRegistration("AI Resume Analysis and ATS Scorecard features require a candidate account. Please register to analyze your resume.");
+                      return;
+                    }
+                    setActiveTab('resume-analyzer');
+                  }}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'resume-analyzer'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Resume AI
+                </button>
+                <button
+                  onClick={() => {
+                    if (currentUser?.isDemo) {
+                      onRequireRegistration && onRequireRegistration("Application Tracker Cockpit requires a candidate account. Please register to track your applications.");
+                      return;
+                    }
+                    setActiveTab('application-tracker');
+                  }}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'application-tracker'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Job Tracker
+                </button>
+                <button
+                  onClick={() => setActiveTab('experience-board')}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'experience-board'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Experiences
+                </button>
+              </>
+            )}
+          </nav>
+
+          {/* Right Section: Search Pill, Live API, Profile Avatar */}
           <div className="flex items-center gap-3">
-            {/* Backend Health Badge */}
-            <div className="hidden lg:flex items-center gap-2 text-xs bg-[#222228] border border-gray-800 rounded-xl px-3.5 py-1.5 text-gray-400">
-              <span className={`w-2 h-2 rounded-full ${healthStatus?.data ? 'bg-emerald-400 animate-pulse' : 'bg-yellow-400'}`} />
-              <span className="font-semibold text-gray-300">
-                Backend: {healthStatus?.loading ? 'Checking...' : healthStatus?.data ? 'Connected' : 'Standalone'}
+            {/* Quick Search Pill */}
+            <div 
+              onClick={() => {
+                const searchEl = document.getElementById('hero-job-search-input') || document.getElementById('job-filter-input');
+                if (searchEl) {
+                  searchEl.focus();
+                  searchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 bg-[#141922] border border-[#253044] rounded-full hover:border-teal-500/40 cursor-pointer transition select-none shadow-sm"
+              title="Search jobs (Ctrl+K)"
+            >
+              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <span>Search...</span>
+            </div>
+
+            {/* Backend Health Badge (Green dot: Live API) */}
+            <div className="flex items-center gap-1.5 text-xs bg-[#141922] border border-[#253044] rounded-full px-3 py-1 text-slate-300">
+              <span className={`w-2 h-2 rounded-full ${healthStatus?.data ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className="font-mono text-[11px] font-medium">
+                {healthStatus?.loading ? 'Checking' : healthStatus?.data ? 'Live API •' : 'Offline'}
               </span>
             </div>
 
-            {/* If Demo User: Register Button directly in Header */}
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 rounded-full bg-[#141922] border border-[#253044] hover:border-teal-400/50 text-slate-300 hover:text-teal-400 transition-all flex items-center justify-center shadow-sm active:scale-95 group focus:outline-none"
+              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              aria-label="Toggle Theme Mode"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-3.5 h-3.5 text-teal-400 group-hover:rotate-45 transition-transform duration-300" />
+              ) : (
+                <Moon className="w-3.5 h-3.5 text-teal-500 group-hover:-rotate-12 transition-transform duration-300" />
+              )}
+            </button>
+
+            {/* If Demo User: Register Button */}
             {currentUser?.isDemo && (
               <button
                 onClick={() => onRequireRegistration && onRequireRegistration("Create your free candidate account to apply for jobs and unlock AI resume tools.")}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs transition shadow-md shadow-yellow-500/20 active:scale-95"
+                className="hidden sm:inline-flex btn btn-primary text-xs py-1.5 px-3"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Register Now</span>
+                <span>Register</span>
               </button>
             )}
 
-            {/* Login or User Avatar Pill with Dropdown Trigger */}
+            {/* User Profile Container or Login */}
             {currentUser ? (
-              <div className="relative" ref={profileMenuRef}>
+              <div className="flex items-center gap-2">
                 <div 
-                  onClick={() => setShowProfileMenu(prev => !prev)}
-                  className="flex items-center gap-2.5 bg-[#222228] pl-2 pr-3 py-1.5 rounded-full border border-gray-800 hover:border-yellow-400/60 hover:bg-gray-800/80 cursor-pointer transition select-none shadow-md"
-                  title="Click to view profile, manage account, or log out"
+                  onClick={() => setShowProfileSidebar(true)}
+                  className="flex items-center gap-2.5 bg-[#141922] pl-2 pr-3 py-1.5 rounded-xl border border-[#253044] hover:border-teal-500/40 cursor-pointer transition select-none shadow-sm group"
+                  title="Open Workspace Profile"
                 >
-                  {/* Emoji Avatar */}
-                  <div className="w-7 h-7 rounded-full bg-[#18181c] border border-yellow-400 flex items-center justify-center text-xs select-none shadow-sm flex-shrink-0">
+                  <div className="w-6 h-6 rounded-lg bg-[#1A2230] border border-[#253044] flex items-center justify-center text-xs select-none">
                     {currentUser.avatar || '👤'}
                   </div>
 
                   <div className="hidden sm:flex flex-col text-left">
-                    <span className="text-xs font-bold text-white leading-none flex items-center gap-1">
+                    <span className="text-xs font-semibold text-slate-200 leading-none flex items-center gap-1 group-hover:text-teal-300 transition-colors">
                       {currentUser.name}
-                      <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showProfileMenu ? 'rotate-180 text-yellow-400' : ''}`} />
+                      <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-teal-300" />
                     </span>
-                    <span className="text-[10px] font-semibold text-yellow-400/90 leading-tight mt-0.5 flex items-center gap-1">
+                    <span className="text-[10px] text-slate-400 font-mono leading-tight mt-0.5">
                       {currentUser.isDemo 
-                        ? 'Preview (View-Only)' 
+                        ? 'Preview Mode' 
                         : isEmployee 
-                        ? 'Employee Portal' 
+                        ? 'Employee' 
                         : isAdmin 
-                        ? 'Admin Author' 
+                        ? 'Administrator' 
                         : 'Candidate'}
-                      {(isEmployee || isAdmin) && (
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                      )}
                     </span>
                   </div>
                 </div>
 
-                {/* INTERACTIVE PROFILE DROPDOWN MENU */}
-                {showProfileMenu && (
-                  <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-[#222228] border border-gray-700/80 rounded-3xl p-4 shadow-2xl z-50 animate-fadeIn space-y-3">
-                    
-                    {/* User Identity Header Card */}
-                    <div className="flex items-start gap-3 p-2 bg-[#18181c] rounded-2xl border border-gray-800">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl select-none border-2 flex-shrink-0 ${
-                        isAdmin 
-                          ? 'bg-purple-950/60 border-purple-400 text-purple-300' 
-                          : isEmployee 
-                          ? 'bg-yellow-400/10 border-yellow-400 text-yellow-300' 
-                          : 'bg-blue-500/10 border-blue-400 text-blue-300'
-                      }`}>
-                        {currentUser.avatar || '👤'}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-white truncate">{currentUser.name}</p>
-                        <p className="text-[11px] text-gray-400 truncate">{currentUser.email}</p>
-                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                            isAdmin
-                              ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                              : isEmployee
-                              ? 'bg-yellow-400/20 text-yellow-300 border border-yellow-500/30'
-                              : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          }`}>
-                            {isAdmin ? 'Admin Author' : isEmployee ? 'Company Recruiter' : 'Candidate'}
-                          </span>
-                          {currentUser.company && (
-                            <span className="text-[10px] text-gray-400 truncate">
-                              • {currentUser.company}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Session Status Chip */}
-                    <div className="px-3 py-1.5 rounded-xl bg-[#18181c]/60 border border-gray-800/80 flex items-center justify-between text-[11px]">
-                      <span className="text-gray-400 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        Status:
-                      </span>
-                      <span className="text-emerald-400 font-bold">Online & Authenticated</span>
-                    </div>
-
-                    {/* Navigation Portals */}
-                    <div className="space-y-1">
-                      {isAdmin && (
-                        <button
-                          onClick={() => {
-                            setActiveTab('admin-panel');
-                            setShowProfileMenu(false);
-                          }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${
-                            activeTab === 'admin-panel'
-                              ? 'bg-yellow-400 text-gray-950 font-black'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4 text-purple-400" />
-                            <span>Admin Governance Console</span>
-                          </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/60 text-purple-300 font-extrabold">Author</span>
-                        </button>
-                      )}
-
-                      {isEmployee && (
-                        <button
-                          onClick={() => {
-                            setActiveTab('employee-panel');
-                            setShowProfileMenu(false);
-                          }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-between ${
-                            activeTab === 'employee-panel'
-                              ? 'bg-yellow-400 text-gray-950 font-black'
-                              : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Briefcase className="w-4 h-4 text-yellow-400" />
-                            <span>Employee Portal</span>
-                          </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-900/60 text-yellow-300 font-extrabold">Recruiter</span>
-                        </button>
-                      )}
-
-                      {!isAdmin && !isEmployee && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setActiveTab('dashboard-overview');
-                              setShowProfileMenu(false);
-                            }}
-                            className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-gray-800 transition flex items-center gap-2"
-                          >
-                            <FileText className="w-4 h-4 text-yellow-400" />
-                            <span>Job Search & Board</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (currentUser?.isDemo) {
-                                onRequireRegistration && onRequireRegistration("AI Resume Analysis requires a candidate account.");
-                                setShowProfileMenu(false);
-                                return;
-                              }
-                              setActiveTab('resume-analyzer');
-                              setShowProfileMenu(false);
-                            }}
-                            className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-bold text-gray-300 hover:text-white hover:bg-gray-800 transition flex items-center gap-2"
-                          >
-                            <Sparkles className="w-4 h-4 text-yellow-400" />
-                            <span>AI Resume Optimizer</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="h-px bg-gray-800" />
-
-                    {/* Manage Account & Profile Action */}
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        setShowManageAccount(true);
-                      }}
-                      className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-200 hover:text-white bg-[#18181c] hover:bg-gray-800 border border-gray-800 hover:border-yellow-400/50 transition flex items-center justify-between group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-yellow-400 group-hover:rotate-45 transition-transform duration-300" />
-                        <span>Manage Account & Profile</span>
-                      </div>
-                      <span className="text-[10px] text-gray-400">Settings</span>
-                    </button>
-
-                    {/* Logout Button */}
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        onLogout();
-                      }}
-                      className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center gap-2"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Log Out of Session</span>
-                    </button>
-
-                  </div>
-                )}
+                {/* Mobile Menu & Profile Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowProfileSidebar(true)}
+                  className="md:hidden p-2 rounded-md bg-surface-raised border border-border-subtle text-ink-primary hover:bg-surface-overlay transition flex items-center justify-center min-w-[44px] min-h-[44px]"
+                  title="Open Navigation & Profile Menu"
+                >
+                  <Menu className="w-4 h-4 text-ink-primary" />
+                </button>
               </div>
             ) : (
               <button
                 onClick={onLoginClick}
-                className="text-xs font-bold text-yellow-400 hover:text-yellow-300 px-3 py-2 transition"
+                className="btn btn-secondary text-xs py-1.5 px-3"
               >
-                Login
+                Sign In
               </button>
             )}
 
@@ -357,13 +297,28 @@ export default function Header({
 
       {/* MANAGE ACCOUNT MODAL */}
       {showManageAccount && (
-        <ManageAccountModal
-          currentUser={currentUser}
-          onClose={() => setShowManageAccount(false)}
-          onLogout={onLogout}
-          onUpdateUser={onUpdateUser}
-        />
+        <Suspense fallback={null}>
+          <ManageAccountModal
+            currentUser={currentUser}
+            onClose={() => setShowManageAccount(false)}
+            onLogout={onLogout}
+            onUpdateUser={onUpdateUser}
+          />
+        </Suspense>
       )}
+
+      {/* SLIDE-OVER PROFILE SIDEBAR */}
+      <ProfileSidebar
+        isOpen={showProfileSidebar}
+        onClose={() => setShowProfileSidebar(false)}
+        currentUser={currentUser}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenManageAccount={() => setShowManageAccount(true)}
+        onLogout={onLogout}
+        onRequireRegistration={onRequireRegistration}
+        onUpdateUser={onUpdateUser}
+      />
     </>
   );
 }

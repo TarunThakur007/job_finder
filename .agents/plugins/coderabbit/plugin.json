@@ -1,0 +1,5 @@
+{
+  "name": "coderabbit",
+  "version": "1.0.0",
+  "description": "CodeRabbit AI automated code review, static analysis, security auditing, and AST diff intelligence."
+}

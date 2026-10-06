@@ -1,5 +1,3 @@
-import React from 'react';
-
 // Brand SVG Logos
 const BrandLogos = {
   Google: () => (
@@ -93,27 +91,27 @@ const COMPANIES = [
 
 export default function CompanyTickerSection() {
   return (
-    <section className="bg-[#18181c] py-12 border-b border-gray-800/80 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 text-center mb-8">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Trusted By <span className="text-yellow-400">1000+</span> Top Tech Companies
-        </h2>
+    <section className="bg-transparent py-8 border-b border-[#253044] overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 text-center mb-4">
+        <p className="text-xs font-mono tracking-wider text-slate-400">
+          Direct verified application pipelines to 1,000+ engineering teams
+        </p>
       </div>
 
       {/* Ticker Container */}
-      <div className="marquee-container py-4">
+      <div className="marquee-container py-2">
         <div className="marquee-content">
           {[...COMPANIES, ...COMPANIES].map((company, index) => {
             const LogoComponent = company.component;
             return (
               <div
                 key={`${company.name}-${index}`}
-                className="flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-[#222228] border border-gray-800 hover:border-yellow-500/50 transition-all duration-300 whitespace-nowrap group cursor-pointer shadow-lg"
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#141922] border border-[#253044] hover:border-teal-500/40 hover:bg-[#1A2230] transition-all whitespace-nowrap group select-none shadow-sm"
               >
-                <div className="p-1.5 rounded-lg bg-[#18181c] group-hover:scale-110 transition-transform">
+                <div className="p-1 rounded-lg bg-[#1A2230] border border-[#253044]">
                   <LogoComponent />
                 </div>
-                <span className="text-base font-bold text-gray-200 group-hover:text-yellow-400 transition-colors">
+                <span className="text-xs font-medium text-slate-200 group-hover:text-teal-300 transition-colors">
                   {company.name}
                 </span>
               </div>

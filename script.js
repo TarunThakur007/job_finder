@@ -122,23 +122,23 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Sidebar Toggle (Arrow open/close)
-  // function toggleSidebar() {
-  //   sidebarOpen = !sidebarOpen;
-  //   if (sidebarOpen) {
-  //     sidebar.classList.remove('collapsed');
-  //     mainContentWrapper.classList.remove('collapsed');
-  //     floatingOpenBtn.classList.add('hidden');
-  //     sidebarToggleBtn.textContent = '‹';
-  //   } else {
-  //     sidebar.classList.add('collapsed');
-  //     mainContentWrapper.classList.add('collapsed');
-  //     floatingOpenBtn.classList.remove('hidden');
-  //     sidebarToggleBtn.textContent = '›';
-  //   }
-  // }
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    if (sidebarOpen) {
+      sidebar?.classList.remove('collapsed');
+      mainContentWrapper?.classList.remove('collapsed');
+      floatingOpenBtn?.classList.add('hidden');
+      if (sidebarToggleBtn) sidebarToggleBtn.textContent = '‹';
+    } else {
+      sidebar?.classList.add('collapsed');
+      mainContentWrapper?.classList.add('collapsed');
+      floatingOpenBtn?.classList.remove('hidden');
+      if (sidebarToggleBtn) sidebarToggleBtn.textContent = '›';
+    }
+  }
 
-  // sidebarToggleBtn?.addEventListener('click', toggleSidebar);
-  // floatingOpenBtn?.addEventListener('click', toggleSidebar);
+  sidebarToggleBtn?.addEventListener('click', toggleSidebar);
+  floatingOpenBtn?.addEventListener('click', toggleSidebar);
 
   // Tab Navigation
   navItems.forEach(item => {

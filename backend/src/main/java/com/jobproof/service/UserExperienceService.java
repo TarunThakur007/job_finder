@@ -95,12 +95,61 @@ public class UserExperienceService {
         return mapToDTO(updated);
     }
 
+    public List<UserExperienceDTO> getAllExperiencesForAdmin() {
+        return userExperienceRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(this::mapToAdminDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public UserExperienceDTO updateExperienceStatus(Long id, String status) {
+        UserExperience entity = userExperienceRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Experience not found: " + id));
+        if (status != null && !status.isBlank()) {
+            entity.setStatus(status.toUpperCase().trim());
+        }
+        return mapToAdminDTO(userExperienceRepository.save(entity));
+    }
+
+    @Transactional
+    public void deleteExperience(Long id) {
+        userExperienceRepository.deleteById(id);
+    }
+
     private UserExperienceDTO mapToDTO(UserExperience entity) {
         return UserExperienceDTO.builder()
                 .id(entity.getId())
                 .userId(entity.getUserId())
                 .userName(Boolean.TRUE.equals(entity.getAnonymous()) ? "Anonymous Candidate" : entity.getUserName())
                 .userEmail(Boolean.TRUE.equals(entity.getAnonymous()) ? "hidden" : entity.getUserEmail())
+                .companyName(entity.getCompanyName())
+                .jobTitle(entity.getJobTitle())
+                .experienceType(entity.getExperienceType())
+                .employmentType(entity.getEmploymentType())
+                .workMode(entity.getWorkMode())
+                .location(entity.getLocation())
+                .yearsOfExperience(entity.getYearsOfExperience())
+                .rating(entity.getRating())
+                .difficultyLevel(entity.getDifficultyLevel())
+                .interviewRounds(entity.getInterviewRounds())
+                .questionsAsked(entity.getQuestionsAsked())
+                .experienceStory(entity.getExperienceStory())
+                .tipsAndAdvice(entity.getTipsAndAdvice())
+                .offerStatus(entity.getOfferStatus())
+                .anonymous(entity.getAnonymous())
+                .upvotes(entity.getUpvotes())
+                .status(entity.getStatus())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
+
+    private UserExperienceDTO mapToAdminDTO(UserExperience entity) {
+        return UserExperienceDTO.builder()
+                .id(entity.getId())
+                .userId(entity.getUserId())
+                .userName(entity.getUserName() != null ? entity.getUserName() : "Community Candidate")
+                .userEmail(entity.getUserEmail() != null ? entity.getUserEmail() : "candidate@jobproof.io")
                 .companyName(entity.getCompanyName())
                 .jobTitle(entity.getJobTitle())
                 .experienceType(entity.getExperienceType())

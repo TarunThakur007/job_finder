@@ -80,7 +80,7 @@ export default function ApplicantResumeModal({ application, onClose, onStatusUpd
       case 'REVIEWING':
         return { bg: 'bg-blue-500/10 text-blue-400 border-blue-500/30', label: 'Under Review' };
       case 'ACCEPTED':
-        return { bg: 'bg-purple-500/10 text-purple-400 border-purple-500/30', label: 'Offer / Accepted' };
+        return { bg: 'bg-yellow-400/15 text-yellow-400 border-yellow-500/30', label: 'Offer / Accepted' };
       case 'REJECTED':
         return { bg: 'bg-rose-500/10 text-rose-400 border-rose-500/30', label: 'Rejected' };
       default:
@@ -165,11 +165,24 @@ export default function ApplicantResumeModal({ application, onClose, onStatusUpd
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-end md:self-center">
-            {/* Download/Print */}
+          <div className="flex items-center gap-2.5 self-end md:self-center">
+            {/* Download Candidate Resume */}
+            <a
+              href={`/api/admin/applications/${application.id}/download-resume`}
+              download={application.resumeFileName || 'Candidate_Resume.pdf'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs shadow-md shadow-yellow-500/20 transition active:scale-95 cursor-pointer"
+              title="Download candidate's uploaded resume file"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Download Resume</span>
+            </a>
+
+            {/* Print / Save PDF */}
             <button
               onClick={() => window.print()}
-              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
               title="Print / Save PDF"
             >
               <Printer className="w-4 h-4" />
@@ -500,7 +513,7 @@ export default function ApplicantResumeModal({ application, onClose, onStatusUpd
             <button
               onClick={() => handleUpdateStatus('ACCEPTED')}
               disabled={savingStatus}
-              className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-60"
+              className="px-4 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black text-xs font-bold shadow-sm transition active:scale-95 disabled:opacity-60"
             >
               Accept / Offer
             </button>

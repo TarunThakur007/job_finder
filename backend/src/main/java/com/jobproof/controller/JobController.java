@@ -20,8 +20,19 @@ public class JobController {
     }
 
     @GetMapping
-    public ResponseEntity<List<JobDTO>> getAllJobs() {
+    public ResponseEntity<?> getAllJobs(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String q) {
+        if (page != null && size != null) {
+            return ResponseEntity.ok(jobService.getPaginatedJobs(page, size, q));
+        }
         return ResponseEntity.ok(jobService.getAllJobs());
+    }
+
+    @GetMapping("/closed")
+    public ResponseEntity<List<JobDTO>> getClosedJobs() {
+        return ResponseEntity.ok(jobService.getClosedJobs());
     }
 
     @GetMapping("/{id}")
@@ -49,5 +60,29 @@ public class JobController {
     public ResponseEntity<JobDTO> createAndVerifyJob(@RequestBody JobDTO dto) {
         JobDTO created = jobService.createAndVerifyJob(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> removeJob(@PathVariable Long id) {
+        jobService.deleteJobPermanently(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/permanent")
+    public ResponseEntity<Void> deleteJobPermanently(@PathVariable Long id) {
+        jobService.deleteJobPermanently(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/close")
+    public ResponseEntity<JobDTO> closeJob(@PathVariable Long id) {
+        JobDTO updated = jobService.removeOrCloseJob(id);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/{id}/reopen")
+    public ResponseEntity<JobDTO> reopenJob(@PathVariable Long id) {
+        JobDTO updated = jobService.reopenJob(id);
+        return ResponseEntity.ok(updated);
     }
 }

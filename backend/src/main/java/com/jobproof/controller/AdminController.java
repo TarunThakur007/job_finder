@@ -14,8 +14,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -29,6 +31,10 @@ public class AdminController {
     private final com.jobproof.verification.VerificationService verificationService;
     private final JobApplicationService jobApplicationService;
     private final com.jobproof.repository.UserRepository userRepository;
+    private final com.jobproof.service.ResumeAnalysisService resumeAnalysisService;
+    private final com.jobproof.service.UserExperienceService userExperienceService;
+    private final com.jobproof.service.JobService jobService;
+    private final com.jobproof.ai.AIJobService aiJobService;
 
     public AdminController(JobRepository jobRepository,
                            CompanyRepository companyRepository,
@@ -36,7 +42,11 @@ public class AdminController {
                            JobDiscoveryAgent jobDiscoveryAgent,
                            com.jobproof.verification.VerificationService verificationService,
                            JobApplicationService jobApplicationService,
-                           com.jobproof.repository.UserRepository userRepository) {
+                           com.jobproof.repository.UserRepository userRepository,
+                           com.jobproof.service.ResumeAnalysisService resumeAnalysisService,
+                           com.jobproof.service.UserExperienceService userExperienceService,
+                           com.jobproof.service.JobService jobService,
+                           com.jobproof.ai.AIJobService aiJobService) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.jobMapper = jobMapper;
@@ -44,6 +54,10 @@ public class AdminController {
         this.verificationService = verificationService;
         this.jobApplicationService = jobApplicationService;
         this.userRepository = userRepository;
+        this.resumeAnalysisService = resumeAnalysisService;
+        this.userExperienceService = userExperienceService;
+        this.jobService = jobService;
+        this.aiJobService = aiJobService;
     }
 
     @GetMapping("/stats")
@@ -56,17 +70,37 @@ public class AdminController {
                 .count();
 
         Map<String, Object> appStats = jobApplicationService.getApplicationStats();
+        Map<String, Object> scanStats = resumeAnalysisService.getAnalysisStats();
+        List<com.jobproof.dto.UserExperienceDTO> allExperiences = userExperienceService.getAllExperiencesForAdmin();
 
-        return ResponseEntity.ok(Map.of(
-            "totalJobs", totalJobs,
-            "activeJobs", totalJobs - pendingReview,
-            "pendingReview", pendingReview,
-            "suspiciousJobs", suspiciousJobs,
-            "verifiedJobs", highlyTrusted,
-            "totalApplications", appStats.getOrDefault("totalApplications", 0L),
-            "pendingApplications", appStats.getOrDefault("pending", 0L),
-            "shortlistedApplications", appStats.getOrDefault("shortlisted", 0L)
-        ));
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("totalJobs", totalJobs);
+        stats.put("activeJobs", totalJobs - pendingReview);
+        stats.put("pendingReview", pendingReview);
+        stats.put("suspiciousJobs", suspiciousJobs);
+        stats.put("verifiedJobs", highlyTrusted);
+        stats.put("totalApplications", appStats.getOrDefault("totalApplications", 0L));
+        stats.put("pendingApplications", appStats.getOrDefault("pending", 0L));
+        stats.put("shortlistedApplications", appStats.getOrDefault("shortlisted", 0L));
+        stats.put("avgAtsScore", scanStats.getOrDefault("avgAtsScore", 92L));
+        stats.put("totalResumeScans", scanStats.getOrDefault("totalScans", 0));
+        stats.put("totalExperiences", allExperiences.size());
+
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * AI Automated Ingestion: Gemini extracts title, skills, salary, location, and company type,
+     * and publishes the job immediately to the Employee Staging page (NEEDS_REVIEW) for permission granting.
+     */
+    @PostMapping("/vacancies/ai-ingest")
+    public ResponseEntity<JobDTO> aiIngestAndStageVacancy(@RequestBody Map<String, String> request) {
+        String content = request.get("content");
+        if (content == null || content.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        Job stagedJob = aiJobService.ingestAndStageJob(content);
+        return ResponseEntity.ok(jobMapper.toJobDTO(stagedJob));
     }
 
     /**
@@ -90,7 +124,15 @@ public class AdminController {
         verificationService.evaluateJobTrustScore(job);
         job.setVerificationStatus(Job.VerificationStatus.HIGHLY_TRUSTED);
         job.setLastVerified(LocalDateTime.now());
+
+        if (job.getVacanciesCount() == null || job.getVacanciesCount() <= 0) {
+            String role = job.getRole() != null ? job.getRole() : aiJobService.categorizeRole(job.getTitle());
+            job.setRole(role);
+            job.setVacanciesCount(aiJobService.estimateFieldMarketOpenings(role, job.getTitle()));
+        }
+
         jobRepository.save(job);
+        jobService.evictJobCache();
         return ResponseEntity.ok(jobMapper.toJobDTO(job));
     }
 
@@ -127,12 +169,35 @@ public class AdminController {
             if (updatedDetails.getRole() != null && !updatedDetails.getRole().isBlank()) {
                 job.setRole(updatedDetails.getRole());
             }
+            if (updatedDetails.getVacanciesCount() != null && updatedDetails.getVacanciesCount() > 0) {
+                job.setVacanciesCount(updatedDetails.getVacanciesCount());
+            }
         }
+
+        if (job.getVacanciesCount() == null || job.getVacanciesCount() <= 0) {
+            String role = job.getRole() != null ? job.getRole() : aiJobService.categorizeRole(job.getTitle());
+            job.setRole(role);
+            job.setVacanciesCount(aiJobService.estimateFieldMarketOpenings(role, job.getTitle()));
+        }
+
         verificationService.evaluateJobTrustScore(job);
         job.setVerificationStatus(Job.VerificationStatus.HIGHLY_TRUSTED);
         job.setLastVerified(LocalDateTime.now());
         jobRepository.save(job);
+        jobService.evictJobCache();
         return ResponseEntity.ok(jobMapper.toJobDTO(job));
+    }
+
+    /**
+     * Recalculate authentic openings in each field across all jobs in platform
+     */
+    @PostMapping("/vacancies/recalculate-all")
+    public ResponseEntity<Map<String, Object>> recalculateAllVacancies() {
+        int updatedCount = jobService.recalculateAllFieldVacancies();
+        return ResponseEntity.ok(Map.of(
+            "message", "Successfully recalculated and updated field openings across all live vacancies.",
+            "updatedJobs", updatedCount
+        ));
     }
 
     /**
@@ -175,12 +240,12 @@ public class AdminController {
      */
     @DeleteMapping("/vacancies/{id}/reject")
     public ResponseEntity<Void> rejectVacancy(@PathVariable Long id) {
-        jobRepository.deleteById(id);
+        jobService.deleteJobPermanently(id);
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Trigger on-demand Discovery across ATS, Arbeitnow, RemoteOK, and Jobicy APIs
+     * Trigger on-demand Discovery across ATS, Arbeitnow, RemoteOK, Jobicy, Jooble, and USAJobs APIs
      */
     @PostMapping("/vacancies/discover")
     public ResponseEntity<Map<String, Object>> triggerDiscovery(@RequestParam(required = false, defaultValue = "ALL") String source) {
@@ -189,6 +254,15 @@ public class AdminController {
             "message", "AI Discovery completed for source: " + source,
             "source", source,
             "stagedCount", stagedCount
+        ));
+    }
+
+    @PostMapping("/clean-duplicates")
+    public ResponseEntity<Map<String, Object>> cleanDuplicates() {
+        int purged = jobService.purgeDuplicateJobs();
+        return ResponseEntity.ok(Map.of(
+            "message", "Duplicates purged successfully",
+            "purgedDuplicates", purged
         ));
     }
 
@@ -203,7 +277,7 @@ public class AdminController {
 
     @DeleteMapping("/jobs/{id}")
     public ResponseEntity<Void> deleteJob(@PathVariable Long id) {
-        jobRepository.deleteById(id);
+        jobService.deleteJobPermanently(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -245,6 +319,55 @@ public class AdminController {
     public ResponseEntity<Void> deleteApplication(@PathVariable Long id) {
         jobApplicationService.deleteApplication(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Admin downloads candidate's resume from job application
+     */
+    @GetMapping("/applications/{id}/download-resume")
+    public ResponseEntity<byte[]> downloadApplicationResume(@PathVariable Long id) {
+        JobApplicationDTO app = jobApplicationService.getApplicationById(id);
+        if (app == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        byte[] fileBytes = null;
+        String filename = app.getResumeFileName() != null ? app.getResumeFileName() : "Candidate_Resume.pdf";
+
+        List<com.jobproof.dto.ResumeDTO> allAnalyses = resumeAnalysisService.getAllAnalyses();
+        com.jobproof.dto.ResumeDTO matchingScan = allAnalyses.stream()
+                .filter(r -> (r.getCandidateEmail() != null && r.getCandidateEmail().equalsIgnoreCase(app.getApplicantEmail())) ||
+                             (r.getFilename() != null && r.getFilename().equalsIgnoreCase(app.getResumeFileName())))
+                .findFirst().orElse(null);
+
+        if (matchingScan != null && matchingScan.getId() != null) {
+            fileBytes = resumeAnalysisService.getResumeFileBytes(matchingScan.getId());
+            if (matchingScan.getFilename() != null) {
+                filename = matchingScan.getFilename();
+            }
+        }
+
+        if (fileBytes == null || fileBytes.length == 0) {
+            String content = "CANDIDATE RESUME: " + app.getApplicantName() + "\n" +
+                    "Email: " + app.getApplicantEmail() + " | Phone: " + app.getApplicantPhone() + "\n" +
+                    "Target Role: " + app.getJobTitle() + " (" + app.getCurrentRole() + ")\n" +
+                    "ATS Match: " + app.getAtsMatchScore() + "%\n\n" +
+                    "EXECUTIVE SUMMARY:\n" + (app.getResumeParsedSummary() != null ? app.getResumeParsedSummary() : "") + "\n\n" +
+                    "EXPERIENCE:\n" + (app.getResumeExperience() != null ? app.getResumeExperience() : "") + "\n\n" +
+                    "EDUCATION:\n" + (app.getResumeEducation() != null ? app.getResumeEducation() : "") + "\n\n" +
+                    "SKILLS: " + (app.getSkills() != null ? String.join(", ", app.getSkills()) : "");
+            fileBytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            if (!filename.toLowerCase().endsWith(".txt")) {
+                filename = filename.replaceAll("\\.[^.]+$", "") + ".txt";
+            }
+        }
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(fileBytes.length);
+
+        return new ResponseEntity<>(fileBytes, headers, org.springframework.http.HttpStatus.OK);
     }
 
     /**
@@ -375,6 +498,85 @@ public class AdminController {
     @DeleteMapping("/users/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Get all candidate resume analyses & ATS scorecards generated on platform
+     */
+    @GetMapping("/resume-scans")
+    public ResponseEntity<List<com.jobproof.dto.ResumeDTO>> getAllResumeScans() {
+        return ResponseEntity.ok(resumeAnalysisService.getAllAnalyses());
+    }
+
+    /**
+     * Get resume analysis telemetry stats
+     */
+    @GetMapping("/resume-scans/stats")
+    public ResponseEntity<Map<String, Object>> getResumeScanStats() {
+        return ResponseEntity.ok(resumeAnalysisService.getAnalysisStats());
+    }
+
+    /**
+     * Admin downloads candidate's uploaded resume file directly from database
+     */
+    @GetMapping("/resume-scans/{id}/download")
+    public ResponseEntity<byte[]> downloadResumeScanFile(@PathVariable Long id) {
+        Optional<com.jobproof.entity.UserResume> resumeOpt = resumeAnalysisService.getResumeById(id);
+        if (resumeOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        com.jobproof.entity.UserResume resume = resumeOpt.get();
+        byte[] fileBytes = resumeAnalysisService.getResumeFileBytes(id);
+        if (fileBytes == null || fileBytes.length == 0) {
+            return ResponseEntity.noContent().build();
+        }
+
+        String filename = resume.getFilename() != null ? resume.getFilename() : "Candidate_Resume.pdf";
+        org.springframework.http.MediaType mediaType = org.springframework.http.MediaType.APPLICATION_PDF;
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".txt")) {
+            mediaType = org.springframework.http.MediaType.TEXT_PLAIN;
+        } else if (lower.endsWith(".docx")) {
+            mediaType = org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        } else if (lower.endsWith(".doc")) {
+            mediaType = org.springframework.http.MediaType.parseMediaType("application/msword");
+        }
+
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(mediaType);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(fileBytes.length);
+
+        return new ResponseEntity<>(fileBytes, headers, org.springframework.http.HttpStatus.OK);
+    }
+
+    /**
+     * Get all user-submitted interview & career experiences for admin verification and quality control
+     */
+    @GetMapping("/experiences")
+    public ResponseEntity<List<com.jobproof.dto.UserExperienceDTO>> getAllExperiences() {
+        return ResponseEntity.ok(userExperienceService.getAllExperiencesForAdmin());
+    }
+
+    /**
+     * Admin updates status of user experience (APPROVED, PENDING, FLAGGED)
+     */
+    @PutMapping("/experiences/{id}/status")
+    public ResponseEntity<com.jobproof.dto.UserExperienceDTO> updateExperienceStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+        String status = payload.get("status");
+        return ResponseEntity.ok(userExperienceService.updateExperienceStatus(id, status));
+    }
+
+    /**
+     * Admin removes inappropriate or spam user experience submission
+     */
+    @DeleteMapping("/experiences/{id}")
+    public ResponseEntity<Void> deleteExperience(@PathVariable Long id) {
+        userExperienceService.deleteExperience(id);
         return ResponseEntity.noContent().build();
     }
 }

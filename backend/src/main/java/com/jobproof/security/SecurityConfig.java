@@ -44,6 +44,7 @@ public class SecurityConfig {
                     "/api/resumes/**", 
                     "/api/notifications",
                     "/api/notifications/**",
+                    "/error",
                     "/h2-console/**"
                 ).permitAll()
                 .anyRequest().authenticated()

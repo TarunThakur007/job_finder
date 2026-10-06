@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/applications")
@@ -32,5 +33,20 @@ public class JobApplicationController {
     @GetMapping("/my")
     public ResponseEntity<List<JobApplicationDTO>> getMyApplications(@RequestParam String email) {
         return ResponseEntity.ok(applicationService.getApplicationsByEmail(email));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<JobApplicationDTO> updateStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+        String status = payload.get("status");
+        String notes = payload.get("notes");
+        return ResponseEntity.ok(applicationService.updateApplicationStatus(id, status, notes));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteApplication(@PathVariable Long id) {
+        applicationService.deleteApplication(id);
+        return ResponseEntity.noContent().build();
     }
 }

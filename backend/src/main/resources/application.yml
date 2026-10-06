@@ -8,7 +8,7 @@ spring:
     name: JobProof-Backend
   
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:jobproofdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/jobproofdb;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
     password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
@@ -30,8 +30,17 @@ spring:
 jobproof:
   verification:
     min-score-threshold: 80
+  scheduler:
+    discovery-cron: ${JOB_DISCOVERY_CRON:0 0 * * * *}
+    hourly-audit-cron: ${JOB_AUDIT_CRON:0 0 * * * *}
   security:
     jwt-secret: ${JWT_SECRET:jobproof_default_development_secret_key_change_in_production_32bytes}
+  connectors:
+    jooble:
+      api-key: ${JOOBLE_API_KEY:}
+    usajobs:
+      api-key: ${USAJOBS_API_KEY:}
+      email: ${USAJOBS_EMAIL:jobproof-agent@jobfinder.gov}
 
 gemini:
   api:

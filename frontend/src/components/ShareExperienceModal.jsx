@@ -63,7 +63,7 @@ export default function ShareExperienceModal({
     };
 
     try {
-      const res = await fetch('http://localhost:8081/api/experiences', {
+      const res = await fetch('/api/experiences', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

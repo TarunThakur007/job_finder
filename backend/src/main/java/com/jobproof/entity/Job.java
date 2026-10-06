@@ -6,7 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "jobs")
+@Table(name = "jobs", indexes = {
+    @Index(name = "idx_jobs_verification_status", columnList = "verification_status"),
+    @Index(name = "idx_jobs_posted_date", columnList = "posted_date"),
+    @Index(name = "idx_jobs_role", columnList = "role"),
+    @Index(name = "idx_jobs_trust_score", columnList = "trust_score")
+})
 public class Job {
 
     @Id
@@ -73,12 +78,19 @@ public class Job {
     @Column(name = "last_verified")
     private LocalDateTime lastVerified;
 
+    @Column(name = "vacancies_count")
+    private Integer vacanciesCount;
+
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<JobSkill> skills = new ArrayList<>();
 
     public Job() {}
 
     public Job(Long id, String title, Company company, String role, String experienceLevel, String location, String employmentType, Double salaryMin, Double salaryMax, String salaryCurrency, Boolean isSalaryEstimated, String description, String summary, String selectionProcess, String applyUrl, String source, String sourceJobId, Integer trustScore, VerificationStatus verificationStatus, LocalDateTime postedDate, LocalDateTime lastVerified, List<JobSkill> skills) {
+        this(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills, null);
+    }
+
+    public Job(Long id, String title, Company company, String role, String experienceLevel, String location, String employmentType, Double salaryMin, Double salaryMax, String salaryCurrency, Boolean isSalaryEstimated, String description, String summary, String selectionProcess, String applyUrl, String source, String sourceJobId, Integer trustScore, VerificationStatus verificationStatus, LocalDateTime postedDate, LocalDateTime lastVerified, List<JobSkill> skills, Integer vacanciesCount) {
         this.id = id;
         this.title = title;
         this.company = company;
@@ -101,6 +113,7 @@ public class Job {
         this.postedDate = postedDate;
         this.lastVerified = lastVerified;
         this.skills = skills != null ? skills : new ArrayList<>();
+        this.vacanciesCount = vacanciesCount;
     }
 
     @PrePersist
@@ -186,6 +199,9 @@ public class Job {
     public List<JobSkill> getSkills() { return skills; }
     public void setSkills(List<JobSkill> skills) { this.skills = skills; }
 
+    public Integer getVacanciesCount() { return vacanciesCount != null ? vacanciesCount : 1; }
+    public void setVacanciesCount(Integer vacanciesCount) { this.vacanciesCount = vacanciesCount; }
+
     public static JobBuilder builder() { return new JobBuilder(); }
 
     public static class JobBuilder {
@@ -211,6 +227,7 @@ public class Job {
         private LocalDateTime postedDate;
         private LocalDateTime lastVerified;
         private List<JobSkill> skills = new ArrayList<>();
+        private Integer vacanciesCount;
 
         public JobBuilder id(Long id) { this.id = id; return this; }
         public JobBuilder title(String title) { this.title = title; return this; }
@@ -234,9 +251,10 @@ public class Job {
         public JobBuilder postedDate(LocalDateTime postedDate) { this.postedDate = postedDate; return this; }
         public JobBuilder lastVerified(LocalDateTime lastVerified) { this.lastVerified = lastVerified; return this; }
         public JobBuilder skills(List<JobSkill> skills) { this.skills = skills; return this; }
+        public JobBuilder vacanciesCount(Integer vacanciesCount) { this.vacanciesCount = vacanciesCount; return this; }
 
         public Job build() {
-            return new Job(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills);
+            return new Job(id, title, company, role, experienceLevel, location, employmentType, salaryMin, salaryMax, salaryCurrency, isSalaryEstimated, description, summary, selectionProcess, applyUrl, source, sourceJobId, trustScore, verificationStatus, postedDate, lastVerified, skills, vacanciesCount);
         }
     }
 

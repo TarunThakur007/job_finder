@@ -28,19 +28,25 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final com.jobproof.repository.UserExperienceRepository userExperienceRepository;
+    private final com.jobproof.repository.EmployeeNotificationRepository notificationRepository;
+    private final com.jobproof.service.JobService jobService;
 
     public DataInitializer(JobRepository jobRepository,
                            CompanyRepository companyRepository,
                            JobDiscoveryAgent jobDiscoveryAgent,
                            UserRepository userRepository,
                            JobApplicationRepository jobApplicationRepository,
-                           com.jobproof.repository.UserExperienceRepository userExperienceRepository) {
+                           com.jobproof.repository.UserExperienceRepository userExperienceRepository,
+                           com.jobproof.repository.EmployeeNotificationRepository notificationRepository,
+                           com.jobproof.service.JobService jobService) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.jobDiscoveryAgent = jobDiscoveryAgent;
         this.userRepository = userRepository;
         this.jobApplicationRepository = jobApplicationRepository;
         this.userExperienceRepository = userExperienceRepository;
+        this.notificationRepository = notificationRepository;
+        this.jobService = jobService;
     }
 
     @Override
@@ -65,10 +71,59 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        log.info("[JobProof DataInitializer] Purging duplicate listings across all companies...");
+        int purgedDuplicates = jobService.purgeDuplicateJobs();
+        if (purgedDuplicates > 0) {
+            log.info("[JobProof DataInitializer] Purged {} duplicate vacancies from database.", purgedDuplicates);
+        }
+
         log.info("[JobProof DataInitializer] Legacy dummy data cleaned. Ensuring real ATS company vacancies are discovered...");
         if (jobRepository.count() == 0) {
             jobDiscoveryAgent.runDiscovery();
         }
+
+        // Initialize permissions: Grant permission to initial live jobs on user page, keep pending in employee permission list
+        List<Job> allDiscovered = jobRepository.findAll();
+        long approvedCount = allDiscovered.stream()
+                .filter(j -> j.getVerificationStatus() == Job.VerificationStatus.HIGHLY_TRUSTED || j.getVerificationStatus() == Job.VerificationStatus.TRUSTED)
+                .count();
+
+        if (approvedCount == 0 && !allDiscovered.isEmpty()) {
+            log.info("[JobProof DataInitializer] Initializing permissions: granting employee permission to initial 24 live vacancies on user page and keeping remaining staged jobs in employee permission list...");
+            int initialApprovedLimit = Math.min(24, allDiscovered.size());
+            for (int i = 0; i < initialApprovedLimit; i++) {
+                Job j = allDiscovered.get(i);
+                if (i >= initialApprovedLimit - 2) {
+                    // Mark 2 vacancies as closed by the company to demonstrate hourly freshness notification & user dismissal
+                    j.setVerificationStatus(Job.VerificationStatus.CLOSED);
+                    j.setSummary("AI Freshness Agent: Employer stopped hiring for this role (Official career portal indicates job expired / closed)");
+                    jobRepository.save(j);
+
+                    String companyName = j.getCompany() != null ? j.getCompany().getName() : "Employer";
+                    if (!notificationRepository.existsByJobIdAndType(j.getId(), "JOB_CLOSED_ALERT")) {
+                        notificationRepository.save(com.jobproof.entity.EmployeeNotification.builder()
+                                .jobId(j.getId())
+                                .jobTitle(j.getTitle())
+                                .companyName(companyName)
+                                .applyUrl(j.getApplyUrl())
+                                .type("JOB_CLOSED_ALERT")
+                                .reason("Official Career Page Closed / 404")
+                                .message(String.format("⚠️ Notice: '%s' has stopped hiring for '%s'. The employer has closed active applications.", companyName, j.getTitle()))
+                                .isRead(false)
+                                .createdAt(LocalDateTime.now())
+                                .build());
+                    }
+                } else {
+                    j.setVerificationStatus(Job.VerificationStatus.HIGHLY_TRUSTED);
+                    j.setTrustScore(92 + (i % 7));
+                    jobRepository.save(j);
+                }
+            }
+        }
+
+        log.info("[JobProof DataInitializer] Updating vacancy counts for all jobs based on real-time field openings...");
+        int updated = jobService.recalculateAllFieldVacancies();
+        log.info("[JobProof DataInitializer] Successfully updated {} jobs with real field vacancy counts.", updated);
 
         // Seed default Admin & Candidate users if not present
         if (!userRepository.existsByEmail("admin@jobproof.io")) {

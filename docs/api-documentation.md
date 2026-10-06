@@ -53,6 +53,7 @@ Retrieve paginated, filtered, and sorted job vacancies.
       "location": "Bangalore, India",
       "isRemote": false,
       "jobType": "FULL_TIME",
+      "vacanciesCount": 5,
       "experienceLevel": "FRESHER",
       "salaryDisplay": "₹8L - ₹12L",
       "skills": ["Java", "Spring Boot", "PostgreSQL"],
@@ -136,8 +137,66 @@ Retrieve list of job categories.
 
 ---
 
-## 4. User Saved Jobs (Planned)
+## 4. Ingestion Connectors & Discovery Control
 
-- `POST /api/jobs/{id}/save`
-- `DELETE /api/jobs/{id}/save`
-- `GET /api/users/me/saved-jobs`
+### `POST /api/admin/vacancies/discover`
+Trigger on-demand discovery across connected ATS and third-party developer APIs.
+
+**Query Parameters**:
+- `source` (string, optional, default: `ALL`):
+  - `ALL`: Ingests from all 8 connected sources.
+  - `ATS`: Greenhouse, Lever, and Ashby direct career feeds.
+  - `JOOBLE`: Jooble Global Job Search API (worldwide tech postings across 70+ countries).
+  - `USAJOBS`: Official USAJobs REST API (Series 2210 IT Management & Cybersecurity).
+  - `ARBEITNOW`: European tech and verified developer listings.
+  - `REMOTEOK`: Global remote software engineering postings.
+  - `JOBICY`: Remote engineering and backend vacancies.
+
+**Response `200 OK`**:
+```json
+{
+  "message": "AI Discovery completed for source: JOOBLE",
+  "source": "JOOBLE",
+  "stagedCount": 10
+}
+```
+
+---
+
+## 5. Configuration & Environment Variables
+
+| Variable | Description | Default |
+|:---|:---|:---|
+| `JOOBLE_API_KEY` | Jooble API Key registered at https://jooble.org/api/about | *(Uses verified fallback if empty)* |
+| `USAJOBS_API_KEY` | USAJobs Authorization-Key from https://developer.usajobs.gov/ | *(Uses verified fallback if empty)* |
+| `USAJOBS_EMAIL` | User-Agent contact email required by USAJobs portal | `jobproof-agent@jobfinder.gov` |
+| `SERVER_PORT` | Spring Boot HTTP listening port | `8081` |
+| `GEMINI_API_KEY` | Google Gemini Generative AI key for ATS scorecards | Optional |
+
+---
+
+## 6. User Resume Persistence & Admin Access
+
+### `POST /api/resumes/analyze`
+Accepts a candidate's uploaded resume (PDF/DOCX/TXT) with Base64 content, extracts and evaluates skills with AI, and persists both candidate metadata and the exact resume file into the database (`user_resumes` and `resume_analyses` tables).
+
+**Request Body**:
+```json
+{
+  "filename": "Candidate_Resume.pdf",
+  "fileType": "application/pdf",
+  "fileSizeBytes": 184500,
+  "candidateName": "John Doe",
+  "candidateEmail": "john.doe@example.com",
+  "targetJobRole": "Full Stack Software Engineer",
+  "fileContentBase64": "data:application/pdf;base64,JVBERi0xLjQK...",
+  "rawResumeText": "Resume text..."
+}
+```
+
+### `GET /api/admin/resume-scans`
+Retrieves all user-uploaded resumes and AI diagnostics from the database for administrative review and auditing.
+
+### `GET /api/admin/resume-scans/{id}/download`
+Streams and downloads the candidate's full uploaded resume file directly from the database with appropriate MIME headers (`Content-Disposition: attachment; filename=...`).
+

@@ -4,16 +4,18 @@ import {
   Users, 
   Megaphone, 
   Code2, 
-  Palette, 
   Database, 
   Cloud, 
-  ShieldCheck,
-  ChevronRight,
-  Sparkles,
-  Layers,
-  Activity
+  ShieldCheck, 
+  ChevronRight, 
+  Sparkles, 
+  Layers, 
+  Smartphone,
+  Activity,
+  CheckCircle2
 } from 'lucide-react';
 
+// Profile definitions strictly corresponding to real roles in the database (NO design / fake categories)
 const PROFILE_DEFINITIONS = [
   {
     id: 'backend',
@@ -51,16 +53,9 @@ const PROFILE_DEFINITIONS = [
     description: 'Cloud infrastructure automation, Kubernetes orchestration, and resilient CI/CD pipelines.'
   },
   {
-    id: 'design',
-    name: 'Product Design & UI/UX',
-    aliases: ['design', 'product design', 'ui/ux', 'visual', 'figma', 'creative'],
-    icon: Palette,
-    description: 'User-centric design systems, wireframing, UX research, and interactive prototyping.'
-  },
-  {
     id: 'security',
-    name: 'Cyber Security',
-    aliases: ['security', 'cyber', 'infosec', 'pentest', 'audit', 'compliance'],
+    name: 'Cyber Security & Trust',
+    aliases: ['security', 'cyber', 'infosec', 'pentest', 'audit', 'compliance', 'abuse'],
     icon: ShieldCheck,
     description: 'Network defense, threat intelligence, vulnerability audits, and application security.'
   },
@@ -72,21 +67,29 @@ const PROFILE_DEFINITIONS = [
     description: 'Enterprise revenue pipelines, brand expansion, and direct market customer acquisition.'
   },
   {
+    id: 'mobile',
+    name: 'Mobile Development',
+    aliases: ['mobile', 'android', 'ios', 'swift', 'kotlin', 'react native', 'flutter'],
+    icon: Smartphone,
+    description: 'Native and cross-platform mobile experiences for iOS, Android, and distributed endpoints.'
+  },
+  {
     id: 'operations',
-    name: 'Finance & Human Resources',
-    aliases: ['finance', 'accounting', 'hr', 'recruiting', 'talent', 'operations', 'people'],
+    name: 'Finance & Operations',
+    aliases: ['finance', 'accounting', 'hr', 'recruiting', 'talent', 'operations', 'people', 'analyst'],
     icon: DollarSign,
-    description: 'Corporate financial growth, talent acquisition, people operations, and compliance.'
+    description: 'Corporate financial growth, talent acquisition, people operations, and operational workflows.'
   }
 ];
 
 export default function CategoryGridSection({ jobs = [], selectedCategory, onSelectCategory, currentUser }) {
-  // Dynamically calculate opening counts per job profile from live jobs and display TOP 6 with openings
-  const topProfilesWithOpenings = useMemo(() => {
-    const list = PROFILE_DEFINITIONS.map(profile => {
-      // Find jobs matching this profile
+  // Dynamically calculate opening counts per job profile strictly from live jobs in the database
+  // Profiles with 0 openings in database are strictly excluded!
+  const profilesWithActiveOpenings = useMemo(() => {
+    return PROFILE_DEFINITIONS.map(profile => {
       const matchingJobs = jobs.filter(job => {
-        const text = `${job.role || ''} ${job.title || ''} ${(job.skills || []).join(' ')}`.toLowerCase();
+        const skillsText = Array.isArray(job.skills) ? job.skills.join(' ') : (job.skills || '');
+        const text = `${job.role || ''} ${job.title || ''} ${skillsText}`.toLowerCase();
         return profile.aliases.some(alias => text.includes(alias.toLowerCase()));
       });
 
@@ -96,47 +99,34 @@ export default function CategoryGridSection({ jobs = [], selectedCategory, onSel
         jobs: matchingJobs
       };
     })
-    .filter(profile => profile.count > 0) // ONLY profiles with active openings at present
-    .sort((a, b) => b.count - a.count)   // Ranked by number of active openings
-    .slice(0, 6);                        // Top 6 profiles
-
-    // If fewer than 6 profiles have matching openings, provide fallback with active count from available profiles
-    if (list.length < 6) {
-      const existingIds = new Set(list.map(p => p.id));
-      for (const p of PROFILE_DEFINITIONS) {
-        if (!existingIds.has(p.id)) {
-          list.push({ ...p, count: Math.max(1, Math.floor(jobs.length / 5)) });
-          if (list.length >= 6) break;
-        }
-      }
-    }
-
-    return list.slice(0, 6);
+    .filter(profile => profile.count > 0) // STRICTLY profiles with real openings present right now
+    .sort((a, b) => b.count - a.count);
   }, [jobs]);
 
-  const totalOpeningsCount = topProfilesWithOpenings.reduce((sum, p) => sum + p.count, 0);
+  const totalOpeningsCount = profilesWithActiveOpenings.reduce((sum, p) => sum + p.count, 0);
 
   return (
-    <section className="bg-[#18181c] py-16 px-4 sm:px-6 lg:px-12 border-b border-gray-800/60 relative">
-      <div className="max-w-7xl mx-auto space-y-12">
+    <section className="bg-transparent py-14 px-4 sm:px-6 lg:px-8 border-b border-gray-800/80 relative transition-colors">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
         {/* Title Header */}
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-400/10 border border-yellow-500/30 text-yellow-400 text-xs font-black uppercase tracking-wider">
-            <Activity className="w-3.5 h-3.5 text-yellow-400 animate-pulse" />
-            <span>Top 6 In-Demand Profiles with Active Openings</span>
+        <div className="text-center max-w-2xl mx-auto space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18181c] border border-yellow-500/30 text-yellow-400 text-xs font-mono font-semibold shadow-sm">
+            <Activity className="w-3.5 h-3.5 text-yellow-400" />
+            <span>AUTHENTICATED DATABASE PIPELINES</span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-            Browse <span className="text-yellow-400">Job</span> Profiles
+          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            Active Verified <span className="text-yellow-400">Engineering Domains</span>
           </h2>
-          <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
-            Showing the top 6 job profiles with live, verified openings currently hiring right now ({totalOpeningsCount}+ verified vacancies).
+          <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+            Only categories with verified active vacancies currently present in the database ({totalOpeningsCount}+ verified requisitions).
           </p>
         </div>
 
-        {/* Responsive Grid of Top 6 Profiles (3 cols x 2 rows) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {topProfilesWithOpenings.map((profile) => {
+        {/* Responsive Grid of Active Profiles matching Dashboard Styling */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profilesWithActiveOpenings.map((profile) => {
             const IconComponent = profile.icon;
             const isSelected = selectedCategory === profile.name;
 
@@ -153,48 +143,47 @@ export default function CategoryGridSection({ jobs = [], selectedCategory, onSel
                     if (onSelectCategory) onSelectCategory(profile.name);
                   }
                 }}
-                className={`group gold-glow-card cursor-pointer rounded-2xl p-6 bg-[#222228] text-center flex flex-col items-center h-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
+                className={`p-5 rounded-2xl flex flex-col justify-between cursor-pointer select-none transition-all duration-200 border ${
                   isSelected 
-                    ? 'border-yellow-400 ring-2 ring-yellow-400/30 bg-[#282830] scale-[1.02]' 
-                    : 'border border-gray-800 hover:border-yellow-500/50 hover:bg-[#25252c]'
+                    ? 'border-teal-400 ring-2 ring-teal-400/30 bg-[#1A2230] shadow-lg shadow-teal-500/10' 
+                    : 'bg-[#141922] border-[#253044] hover:border-teal-500/50 hover:bg-[#1A2230] hover:shadow-md hover:shadow-teal-500/5 hover:-translate-y-0.5'
                 }`}
               >
-                {/* Live Opening Pill */}
-                <div className="w-full flex justify-between items-center mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Hiring Now</span>
-                  </span>
-                  <span className="text-[11px] font-extrabold text-yellow-400 font-mono">
-                    {profile.count} {profile.count === 1 ? 'Opening' : 'Openings'}
+                {/* Profile Top Row: Icon + Count Pill */}
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+                    isSelected 
+                      ? 'bg-teal-500 text-white font-bold' 
+                      : 'bg-[#0D1117] border border-[#253044] text-teal-400'
+                  }`}>
+                    <IconComponent className="w-5 h-5" />
+                  </div>
+
+                  <span className="font-mono text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 tabular-nums flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{profile.count} {profile.count === 1 ? 'Open Position' : 'Open Positions'}</span>
                   </span>
                 </div>
 
-                {/* Top-Aligned Content: Icon, Title & Fixed-Height Description */}
-                <div className="flex flex-col items-center w-full">
-                  {/* Yellow Icon Circle Badge */}
-                  <div className="w-14 h-14 rounded-2xl bg-yellow-400 text-gray-950 flex items-center justify-center shadow-lg shadow-yellow-500/20 group-hover:scale-110 transition-transform mb-4">
-                    <IconComponent className="w-7 h-7 stroke-[2.2]" />
-                  </div>
-
-                  {/* Profile Title */}
-                  <h3 className="text-lg font-black text-white group-hover:text-yellow-400 transition-colors min-h-[28px] flex items-center justify-center">
-                    {profile.name}
+                {/* Profile Info */}
+                <div className="space-y-1.5 mb-4">
+                  <h3 className="text-sm font-extrabold text-white tracking-tight flex items-center justify-between">
+                    <span>{profile.name}</span>
+                    <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'translate-x-1 text-teal-400' : 'text-slate-500'}`} />
                   </h3>
-
-                  {/* Description */}
-                  <p className="text-xs text-gray-400 line-clamp-2 px-2 mt-2 h-9 flex items-center justify-center text-center">
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                     {profile.description}
                   </p>
                 </div>
 
-                {/* Bottom-Pinned Footer: Verified Openings & Affordance */}
-                <div className="mt-auto pt-4 border-t border-gray-800/80 w-full flex items-center justify-between">
-                  <span className="text-xs font-black text-white group-hover:text-yellow-400 transition-colors">
-                    {profile.count} Verified {profile.count === 1 ? 'Vacancy' : 'Vacancies'}
+                {/* Micro Footer Indicator */}
+                <div className="pt-3 border-t border-[#253044] flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified Openings</span>
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-gray-400 group-hover:text-yellow-400 transition-colors">
-                    {currentUser?.isDemo ? 'Unlock Profile' : 'Browse Openings'} <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  <span className="text-teal-400 font-semibold group-hover:text-teal-300">
+                    View Jobs →
                   </span>
                 </div>
               </div>
@@ -202,17 +191,6 @@ export default function CategoryGridSection({ jobs = [], selectedCategory, onSel
           })}
         </div>
 
-        {/* Clear Filter Button if selected */}
-        {selectedCategory && (
-          <div className="text-center pt-2">
-            <button
-              onClick={() => onSelectCategory(null)}
-              className="text-xs font-bold text-yellow-400 underline underline-offset-4 hover:text-yellow-300"
-            >
-              Showing results for "{selectedCategory}" — Click to show all profiles
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );

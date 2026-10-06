@@ -1,5 +1,6 @@
 package com.jobproof.repository;
 
+import com.jobproof.entity.Job;
 import com.jobproof.entity.JobApplication;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -18,4 +19,8 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     List<JobApplication> findByApplicantEmailOrderByAppliedAtDesc(String applicantEmail);
 
     long countByStatus(String status);
+
+    void deleteByJobId(Long jobId);
+
+    void deleteByJob(Job job);
 }

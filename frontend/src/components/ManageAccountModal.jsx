@@ -91,7 +91,7 @@ export default function ManageAccountModal({ currentUser, onClose, onLogout, onU
                 <h2 className="text-xl font-extrabold text-white">{formData.name}</h2>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
                   isAdmin
-                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                    ? 'bg-yellow-400/15 border border-yellow-500/30 text-yellow-300'
                     : isEmployee
                     ? 'bg-yellow-400/20 border border-yellow-500/40 text-yellow-300'
                     : 'bg-blue-500/20 border border-blue-500/40 text-blue-300'

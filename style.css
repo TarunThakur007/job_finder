@@ -19,6 +19,13 @@
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: var(--bg-dark);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.08) 0%, transparent 65%),
+    url('frontend/public/hero-character.webp');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: clamp(340px, 46vw, 720px);
+  background-attachment: fixed;
   color: var(--text-main);
 }
 
@@ -58,3 +65,21 @@ body {
   border-color: #3B82F6;
   transform: translateY(-2px);
 }
+
+/* Sidebar toggle and collapsed states */
+aside.sidebar {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+aside.sidebar.collapsed {
+  transform: translateX(-100%) !important;
+}
+
+#main-content-wrapper.collapsed {
+  padding-left: 0 !important;
+}
+
+#floating-open-btn:not(.hidden) {
+  display: flex !important;
+}
+

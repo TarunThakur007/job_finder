@@ -6,6 +6,7 @@ import com.jobproof.entity.Company;
 import com.jobproof.entity.Job;
 import com.jobproof.ingestion.connector.*;
 import com.jobproof.repository.CompanyRepository;
+import com.jobproof.repository.DeletedJobRecordRepository;
 import com.jobproof.repository.JobRepository;
 import com.jobproof.verification.VerificationService;
 import org.slf4j.Logger;
@@ -29,10 +30,13 @@ public class JobDiscoveryAgent {
     private final ArbeitnowConnector arbeitnowConnector;
     private final RemoteOKConnector remoteOKConnector;
     private final JobicyConnector jobicyConnector;
+    private final JoobleConnector joobleConnector;
+    private final UsaJobsConnector usaJobsConnector;
     private final JobRepository jobRepository;
     private final CompanyRepository companyRepository;
     private final VerificationService verificationService;
     private final AIJobService aiJobService;
+    private final DeletedJobRecordRepository deletedJobRecordRepository;
 
     public JobDiscoveryAgent(
             TargetCompanyConfig companyConfig,
@@ -42,10 +46,13 @@ public class JobDiscoveryAgent {
             ArbeitnowConnector arbeitnowConnector,
             RemoteOKConnector remoteOKConnector,
             JobicyConnector jobicyConnector,
+            JoobleConnector joobleConnector,
+            UsaJobsConnector usaJobsConnector,
             JobRepository jobRepository,
             CompanyRepository companyRepository,
             VerificationService verificationService,
-            AIJobService aiJobService) {
+            AIJobService aiJobService,
+            DeletedJobRecordRepository deletedJobRecordRepository) {
         this.companyConfig = companyConfig;
         this.greenhouseConnector = greenhouseConnector;
         this.leverConnector = leverConnector;
@@ -53,10 +60,13 @@ public class JobDiscoveryAgent {
         this.arbeitnowConnector = arbeitnowConnector;
         this.remoteOKConnector = remoteOKConnector;
         this.jobicyConnector = jobicyConnector;
+        this.joobleConnector = joobleConnector;
+        this.usaJobsConnector = usaJobsConnector;
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.verificationService = verificationService;
         this.aiJobService = aiJobService;
+        this.deletedJobRecordRepository = deletedJobRecordRepository;
     }
 
     /**
@@ -65,13 +75,15 @@ public class JobDiscoveryAgent {
      * 2. Arbeitnow API (Verified job board feed)
      * 3. Jobicy Remote API (Verified engineering feed)
      * 4. RemoteOK API (Verified developer feed)
+     * 5. Jooble API (Global tech vacancies across 70+ countries)
+     * 6. USAJobs Federal API (Official US Government IT & Cyber vacancies)
      */
     public int runDiscovery() {
         return runDiscoveryBySource("ALL");
     }
 
     /**
-     * Runs discovery for a specific source: ATS, ARBEITNOW, REMOTEOK, JOBICY, or ALL
+     * Runs discovery for a specific source: ATS, ARBEITNOW, REMOTEOK, JOBICY, JOOBLE, USAJOBS, or ALL
      */
     public int runDiscoveryBySource(String sourceName) {
         String filter = sourceName != null ? sourceName.trim().toUpperCase() : "ALL";
@@ -113,6 +125,26 @@ public class JobDiscoveryAgent {
             }
         }
 
+        // 5. Jooble Global Job Search API
+        if ("ALL".equals(filter) || "JOOBLE".equals(filter)) {
+            try {
+                List<JobDTO> candidates = joobleConnector.fetchJobs(15);
+                totalStaged += stageCandidates(candidates, 10, "Jooble Global API");
+            } catch (Exception e) {
+                log.error("[JobDiscoveryAgent] Error during Jooble ingestion: {}", e.getMessage());
+            }
+        }
+
+        // 6. USAJobs Official Federal API (Series 2210 IT Management)
+        if ("ALL".equals(filter) || "USAJOBS".equals(filter)) {
+            try {
+                List<JobDTO> candidates = usaJobsConnector.fetchJobs(15);
+                totalStaged += stageCandidates(candidates, 10, "USAJobs Federal API");
+            } catch (Exception e) {
+                log.error("[JobDiscoveryAgent] Error during USAJobs ingestion: {}", e.getMessage());
+            }
+        }
+
         log.info("[JobDiscoveryAgent] Ingestion completed. Total staged for Employee/Admin review: {}", totalStaged);
         return totalStaged;
     }
@@ -148,17 +180,26 @@ public class JobDiscoveryAgent {
         int count = 0;
         int max = Math.min(candidates.size(), limit);
 
+        // Pre-aggregate field distribution in this feed
+        java.util.Map<String, Integer> feedFieldCounts = new java.util.HashMap<>();
+        for (JobDTO c : candidates) {
+            if (c.getTitle() != null && !c.getTitle().isBlank()) {
+                String f = aiJobService.categorizeRole(c.getTitle());
+                feedFieldCounts.merge(f, 1, Integer::sum);
+            }
+        }
+
         for (int i = 0; i < max; i++) {
             JobDTO draft = candidates.get(i);
             try {
                 String cleanUrl = normalizeUrl(draft.getApplyUrl());
-                if (cleanUrl == null || jobRepository.findByApplyUrl(cleanUrl).isPresent()) {
-                    continue;
-                }
-
                 String cName = draft.getCompany() != null && draft.getCompany().getName() != null
                         ? draft.getCompany().getName()
                         : "Verified Employer";
+
+                if (cleanUrl == null || isDuplicateOrDeleted(cleanUrl, draft.getTitle(), cName)) {
+                    continue;
+                }
                 String cWeb = draft.getCompany() != null && draft.getCompany().getWebsite() != null
                         ? draft.getCompany().getWebsite()
                         : null;
@@ -189,6 +230,31 @@ public class JobDiscoveryAgent {
                 job.setPostedDate(LocalDateTime.now());
                 job.setLastVerified(LocalDateTime.now());
 
+                String field = aiJobService.categorizeRole(draft.getTitle());
+                job.setRole(field);
+
+                // Compute actual openings in that field at this time
+                int explicitHeadcount = aiJobService.extractExplicitHeadcount(draft.getTitle(), desc);
+                int feedOpenings = feedFieldCounts.getOrDefault(field, 1);
+                long platformCount = jobRepository.countByRoleIgnoreCase(field);
+
+                int finalOpenings;
+                if (explicitHeadcount > 0) {
+                    finalOpenings = explicitHeadcount;
+                } else if (feedOpenings > 2) {
+                    finalOpenings = feedOpenings;
+                } else if (platformCount > 0) {
+                    finalOpenings = (int) platformCount + feedOpenings;
+                } else {
+                    finalOpenings = aiJobService.estimateFieldMarketOpenings(field, draft.getTitle());
+                }
+
+                job.setVacanciesCount(finalOpenings);
+                draft.setVacanciesCount(finalOpenings);
+
+                log.info("[JobDiscoveryAgent] Discovered {} active openings in field '{}' for '{}' via {}",
+                        finalOpenings, field, job.getTitle(), sourceLabel);
+
                 // Run AI analysis & enrichment
                 aiJobService.analyzeAndEnrichJob(job);
 
@@ -218,10 +284,22 @@ public class JobDiscoveryAgent {
         int count = 0;
         int max = Math.min(candidates.size(), limit);
 
+        // Pre-compute real-time active openings per field across the company's full candidate feed
+        java.util.Map<String, Integer> fieldCounts = new java.util.HashMap<>();
+        java.util.Map<String, Integer> exactTitleCounts = new java.util.HashMap<>();
+        for (JobDTO c : candidates) {
+            if (c.getTitle() != null && !c.getTitle().isBlank()) {
+                String f = aiJobService.categorizeRole(c.getTitle());
+                fieldCounts.merge(f, 1, Integer::sum);
+                String t = c.getTitle().trim().toLowerCase();
+                exactTitleCounts.merge(t, 1, Integer::sum);
+            }
+        }
+
         for (int i = 0; i < max; i++) {
             JobDTO draft = candidates.get(i);
             String cleanUrl = normalizeUrl(draft.getApplyUrl());
-            if (cleanUrl == null || jobRepository.findByApplyUrl(cleanUrl).isPresent()) {
+            if (cleanUrl == null || isDuplicateOrDeleted(cleanUrl, draft.getTitle(), company.getName())) {
                 continue;
             }
 
@@ -237,6 +315,31 @@ public class JobDiscoveryAgent {
             job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW);
             job.setPostedDate(LocalDateTime.now());
             job.setLastVerified(LocalDateTime.now());
+
+            String field = aiJobService.categorizeRole(draft.getTitle());
+            job.setRole(field);
+
+            // Compute actual openings in that field at this company at this time
+            int explicitHeadcount = aiJobService.extractExplicitHeadcount(draft.getTitle(), draft.getDescription());
+            int companyFieldOpenings = fieldCounts.getOrDefault(field, 1);
+            int exactTitleOpenings = exactTitleCounts.getOrDefault(draft.getTitle().trim().toLowerCase(), 1);
+
+            int finalOpenings;
+            if (explicitHeadcount > 0) {
+                finalOpenings = explicitHeadcount;
+            } else if (companyFieldOpenings > 1) {
+                finalOpenings = companyFieldOpenings;
+            } else if (exactTitleOpenings > 1) {
+                finalOpenings = exactTitleOpenings;
+            } else {
+                finalOpenings = aiJobService.estimateFieldMarketOpenings(field, draft.getTitle());
+            }
+
+            job.setVacanciesCount(finalOpenings);
+            draft.setVacanciesCount(finalOpenings);
+
+            log.info("[JobDiscoveryAgent] Discovered {} active openings in field '{}' for '{}' at {}",
+                    finalOpenings, field, job.getTitle(), company.getName());
 
             aiJobService.analyzeAndEnrichJob(job);
             job = jobRepository.save(job);
@@ -293,4 +396,35 @@ public class JobDiscoveryAgent {
         }
         return clean;
     }
+
+    private boolean isDuplicateOrDeleted(String applyUrl, String title, String companyName) {
+        if (applyUrl != null && !applyUrl.isBlank()) {
+            if (deletedJobRecordRepository.existsByApplyUrl(applyUrl)) {
+                log.info("[JobDiscoveryAgent] Skipping deleted/blacklisted URL: {}", applyUrl);
+                return true;
+            }
+            if (jobRepository.findByApplyUrl(applyUrl).isPresent()) {
+                return true;
+            }
+        }
+
+        if (title != null && !title.isBlank() && companyName != null && !companyName.isBlank()) {
+            String jobKey = com.jobproof.service.JobService.generateJobKey(title, companyName);
+            if (deletedJobRecordRepository.existsByJobKey(jobKey)) {
+                log.info("[JobDiscoveryAgent] Skipping deleted/blacklisted post: '{}' at '{}' (crawler blocked)", title, companyName);
+                return true;
+            }
+            // Check if job already exists in database
+            boolean exists = jobRepository.findAll().stream().anyMatch(j -> {
+                String c = j.getCompany() != null ? j.getCompany().getName() : "";
+                return com.jobproof.service.JobService.generateJobKey(j.getTitle(), c).equals(jobKey);
+            });
+            if (exists) {
+                log.info("[JobDiscoveryAgent] Skipping duplicate posting: '{}' at '{}' (already exists in DB)", title, companyName);
+                return true;
+            }
+        }
+        return false;
+    }
 }
+
