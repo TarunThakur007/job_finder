@@ -12,8 +12,7 @@
 
 :root,
 [data-theme='dark'],
-.dark,
-body {
+.dark {
   /* OBSIDIAN + ELECTRIC TEAL + MINT + CONTROLLED AMBER */
   --surface-canvas: #090B0F;     /* Background */
   --surface-section: #0D1117;    /* Section Background */
@@ -80,14 +79,20 @@ body {
   --border-dark: #253044;
 }
 
-/* Light Mode System Configuration */
+/* Light Mode System Configuration (Completely Pure White Background) */
+:root[data-theme='light'],
+html[data-theme='light'],
+html.light,
 [data-theme='light'],
 .light {
-  /* Neutral Palette - Clean crisp slate & porcelain */
-  --surface-canvas: #f8fafc;
+  /* Pure Crisp White Palette */
+  --surface-canvas: #ffffff;
+  --surface-section: #ffffff;
   --surface-raised: #ffffff;
-  --surface-overlay: #f1f5f9;
-  --surface-sunken: #e2e8f0;
+  --surface-card: #ffffff;
+  --surface-overlay: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --surface-sunken: #f8fafc;
 
   --text-primary: #0f172a;     /* Slate-900 */
   --text-secondary: #334155;   /* Slate-700 */
@@ -97,17 +102,18 @@ body {
   /* Structural Hairlines & Borders */
   --border-subtle: #e2e8f0;
   --border-strong: #cbd5e1;
-  --border-focus: #f59e0b;
+  --border-focus: #14b8a6;
 
   /* Primary Brand Tone */
-  --brand-primary: #f59e0b;
-  --brand-primary-hover: #d97706;
-  --brand-primary-active: #b45309;
-  --brand-primary-foreground: #0f172a;
+  --brand-primary: #0d9488;
+  --brand-primary-hover: #0f766e;
+  --brand-primary-active: #115e59;
+  --brand-primary-foreground: #ffffff;
+  --brand-mint: #14b8a6;
 
   /* Accent Tone */
-  --accent-functional: #d97706;
-  --accent-functional-subtle: rgba(217, 119, 6, 0.12);
+  --accent-functional: #0d9488;
+  --accent-functional-subtle: rgba(13, 148, 136, 0.12);
 
   /* Semantic Feedback Statuses */
   --status-success: #059669;
@@ -121,12 +127,12 @@ body {
   --status-danger-border: rgba(220, 38, 38, 0.3);
 
   /* Elevation Matrix */
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-  --shadow-dropdown: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06);
+  --shadow-dropdown: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
 
-  --bg-dark: #f8fafc;
+  --bg-dark: #ffffff;
   --panel-dark: #ffffff;
   --panel-card: #ffffff;
   --accent-emerald: #059669;
@@ -136,47 +142,120 @@ body {
   --border-dark: #e2e8f0;
 }
 
-/* Light mode specific element adaptations */
+/* Light mode root, body, and canvas background: completely white */
+html[data-theme='light'],
+html.light,
 [data-theme='light'] body,
-.light body {
-  background-color: #f8fafc;
-  color: #0f172a;
+.light body,
+[data-theme='light'] #root,
+.light #root,
+[data-theme='light'] .bg-surface-canvas,
+.light .bg-surface-canvas {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
 }
 
-[data-theme='light'] header,
-.light header {
-  background-color: rgba(255, 255, 255, 0.94) !important;
-  border-bottom-color: #e2e8f0 !important;
-}
-
+/* Hide fixed character background image and glow in light mode to keep canvas completely pure white */
+[data-theme='light'] .fixed-site-background,
+.light .fixed-site-background,
 [data-theme='light'] .fixed-site-background-image,
-.light .fixed-site-background-image {
-  opacity: 0.16;
-  filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.1));
-}
-
+.light .fixed-site-background-image,
 [data-theme='light'] .fixed-site-background-glow,
 .light .fixed-site-background-glow {
-  background: radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.02) 45%, transparent 70%);
+  display: none !important;
 }
 
-[data-theme='light'] .bg-\[\#0f0f12\],
-.light .bg-\[\#0f0f12\] {
-  background-color: #f8fafc !important;
+/* Header adaptation in Light Mode: clean pure white */
+[data-theme='light'] header,
+.light header {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-[data-theme='light'] .bg-\[\#18181c\],
-.light .bg-\[\#18181c\] {
+/* Main landmark adaptation */
+[data-theme='light'] #main-content,
+.light #main-content {
   background-color: #ffffff !important;
 }
 
+/* Base surface containers become pure white */
+[data-theme='light'] .bg-\[\#090B0F\],
+.light .bg-\[\#090B0F\],
+[data-theme='light'] .bg-\[\#090B0F\]\/95,
+.light .bg-\[\#090B0F\]\/95,
+[data-theme='light'] .bg-\[\#050B14\],
+.light .bg-\[\#050B14\],
+[data-theme='light'] .bg-\[\#07101b\],
+.light .bg-\[\#07101b\],
+[data-theme='light'] .bg-\[\#06080B\],
+.light .bg-\[\#06080B\],
+[data-theme='light'] .bg-\[\#0B0D0E\],
+.light .bg-\[\#0B0D0E\],
+[data-theme='light'] .bg-\[\#0f0f12\],
+.light .bg-\[\#0f0f12\] {
+  background-color: #ffffff !important;
+}
+
+/* Card and Panel Backgrounds become crisp white */
+[data-theme='light'] .bg-\[\#0E131F\],
+.light .bg-\[\#0E131F\],
+[data-theme='light'] .bg-\[\#141922\],
+.light .bg-\[\#141922\],
+[data-theme='light'] .bg-\[\#18181c\],
+.light .bg-\[\#18181c\],
+[data-theme='light'] .bg-\[\#081524\],
+.light .bg-\[\#081524\],
+[data-theme='light'] .bg-\[\#050C16\],
+.light .bg-\[\#050C16\],
+[data-theme='light'] .bg-\[\#050e17\],
+.light .bg-\[\#050e17\],
+[data-theme='light'] .bg-\[\#091523\],
+.light .bg-\[\#091523\],
+[data-theme='light'] .bg-\[\#0c1424\],
+.light .bg-\[\#0c1424\] {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Elevated/Inner containers become soft light slate */
+[data-theme='light'] .bg-\[\#0D1117\],
+.light .bg-\[\#0D1117\],
 [data-theme='light'] .bg-\[\#222228\],
-.light .bg-\[\#222228\] {
+.light .bg-\[\#222228\],
+[data-theme='light'] .bg-\[\#222228\]\/80,
+.light .bg-\[\#222228\]\/80 {
+  background-color: #f8fafc !important;
+}
+
+[data-theme='light'] .bg-\[\#1A2230\],
+.light .bg-\[\#1A2230\] {
   background-color: #f1f5f9 !important;
 }
 
+/* Structural Borders in Light Mode */
+[data-theme='light'] .border-\[\#253044\],
+.light .border-\[\#253044\],
+[data-theme='light'] .border-\[\#253044\]\/80,
+.light .border-\[\#253044\]\/80,
+[data-theme='light'] .border-\[\#122438\],
+.light .border-\[\#122438\],
+[data-theme='light'] .border-\[\#12283e\],
+.light .border-\[\#12283e\],
+[data-theme='light'] .border-\[\#14283d\],
+.light .border-\[\#14283d\],
+[data-theme='light'] .border-\[\#14263b\],
+.light .border-\[\#14263b\],
+[data-theme='light'] .border-\[\#15354a\],
+.light .border-\[\#15354a\],
+[data-theme='light'] .border-\[\#133246\],
+.light .border-\[\#133246\],
+[data-theme='light'] .border-\[\#1e2f4a\],
+.light .border-\[\#1e2f4a\],
 [data-theme='light'] .border-gray-800,
 .light .border-gray-800,
+[data-theme='light'] .border-gray-800\/80,
+.light .border-gray-800\/80,
 [data-theme='light'] .border-gray-700,
 .light .border-gray-700,
 [data-theme='light'] .border-gray-700\/60,
@@ -184,16 +263,61 @@ body {
   border-color: #e2e8f0 !important;
 }
 
+/* Typography Overrides in Light Mode */
 [data-theme='light'] .text-white,
 .light .text-white {
   color: #0f172a !important;
 }
 
-[data-theme='light'] .text-gray-400,
-.light .text-gray-400,
+[data-theme='light'] .text-slate-200,
+.light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+[data-theme='light'] .text-slate-300,
+.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .text-slate-400,
+.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .text-slate-500,
+.light .text-slate-500 {
+  color: #64748b !important;
+}
+
 [data-theme='light'] .text-gray-300,
 .light .text-gray-300 {
-  color: #475569 !important;
+  color: #334155 !important;
+}
+
+[data-theme='light'] .text-gray-400,
+.light .text-gray-400 {
+  color: #64748b !important;
+}
+
+/* Light Mode Input & Form Control Overrides */
+[data-theme='light'] select option,
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+[data-theme='light'] input,
+.light input,
+[data-theme='light'] textarea,
+.light textarea {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] input::placeholder,
+.light input::placeholder,
+[data-theme='light'] textarea::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
 /* Obsidian + Electric Teal Theme Overrides for Dark Mode */

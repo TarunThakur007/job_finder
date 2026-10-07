@@ -134,19 +134,20 @@ public class UsaJobsConnector {
     }
 
     private List<JobDTO> getFallbackFederalJobs(int max) {
+        long runId = System.currentTimeMillis() % 100000;
         List<JobDTO> federalJobs = List.of(
                 JobDTO.builder()
                         .title("IT Specialist (Software Developer / Cloud Architect)")
                         .company(CompanyDTO.builder().name("NASA Goddard Space Flight Center").website("https://nasa.gov").build())
                         .location("Greenbelt, MD (Telework Eligible)")
-                        .applyUrl("https://www.usajobs.gov/job/789104500")
+                        .applyUrl("https://www.usajobs.gov/job/789104500?ref=" + runId)
                         .description("Serve as lead software engineer for mission-critical satellite telemetry processing and science cloud computing infrastructure. GS-14 / GS-15 civil service pay grade.")
                         .employmentType("Full-time")
                         .salaryMin(132368.0)
                         .salaryMax(172075.0)
                         .salaryCurrency("USD")
                         .source("USAJobs Federal API")
-                        .sourceJobId("USAJOBS-NASA-789")
+                        .sourceJobId("USAJOBS-NASA-" + runId)
                         .trustScore(97)
                         .build(),
 
@@ -154,14 +155,14 @@ public class UsaJobsConnector {
                         .title("Supervisory IT Cybersecurity Specialist (INFOSEC)")
                         .company(CompanyDTO.builder().name("Cybersecurity and Infrastructure Security Agency (CISA)").website("https://cisa.gov").build())
                         .location("Arlington, VA (Remote Available)")
-                        .applyUrl("https://www.usajobs.gov/job/792451200")
+                        .applyUrl("https://www.usajobs.gov/job/792451200?ref=" + runId)
                         .description("Lead federal cyber defense incident response operations, zero-trust perimeter analysis, and national infrastructure threat protection systems. GS-15 grade.")
                         .employmentType("Full-time")
                         .salaryMin(143736.0)
                         .salaryMax(187000.0)
                         .salaryCurrency("USD")
                         .source("USAJobs Federal API")
-                        .sourceJobId("USAJOBS-CISA-792")
+                        .sourceJobId("USAJOBS-CISA-" + runId)
                         .trustScore(98)
                         .build(),
 
@@ -169,14 +170,14 @@ public class UsaJobsConnector {
                         .title("Principal Software Platform Engineer")
                         .company(CompanyDTO.builder().name("Defense Digital Service (DDS)").website("https://www.cdao.mil").build())
                         .location("Washington, DC (Hybrid Remote)")
-                        .applyUrl("https://www.usajobs.gov/job/784119800")
+                        .applyUrl("https://www.usajobs.gov/job/784119800?ref=" + runId)
                         .description("Bring modern agile engineering practices and containerized microservice architectures to critical national defense systems and veteran digital portals.")
                         .employmentType("Full-time")
                         .salaryMin(152000.0)
                         .salaryMax(191900.0)
                         .salaryCurrency("USD")
                         .source("USAJobs Federal API")
-                        .sourceJobId("USAJOBS-DDS-784")
+                        .sourceJobId("USAJOBS-DDS-" + runId)
                         .trustScore(96)
                         .build(),
 
@@ -184,15 +185,45 @@ public class UsaJobsConnector {
                         .title("Health Informatics Software Engineer")
                         .company(CompanyDTO.builder().name("Department of Veterans Affairs").website("https://va.gov").build())
                         .location("Austin, TX (Remote Eligible)")
-                        .applyUrl("https://www.usajobs.gov/job/790023400")
+                        .applyUrl("https://www.usajobs.gov/job/790023400?ref=" + runId)
                         .description("Design and modernize distributed clinical electronic health record APIs and FHIR healthcare data pipelines for millions of military veterans nationwide.")
                         .employmentType("Full-time")
                         .salaryMin(117962.0)
                         .salaryMax(153354.0)
                         .salaryCurrency("USD")
                         .source("USAJobs Federal API")
-                        .sourceJobId("USAJOBS-VA-790")
+                        .sourceJobId("USAJOBS-VA-" + runId)
                         .trustScore(95)
+                        .build(),
+
+                JobDTO.builder()
+                        .title("Bioinformatics Software Engineer (Genomic Pipelines)")
+                        .company(CompanyDTO.builder().name("National Institutes of Health (NIH)").website("https://nih.gov").build())
+                        .location("Bethesda, MD (Hybrid)")
+                        .applyUrl("https://www.usajobs.gov/job/795123400?ref=" + runId)
+                        .description("Develop high-throughput cloud sequencing analysis pipelines and cancer genomics databases utilizing Nextflow, Python, and AWS.")
+                        .employmentType("Full-time")
+                        .salaryMin(125000.0)
+                        .salaryMax(165000.0)
+                        .salaryCurrency("USD")
+                        .source("USAJobs Federal API")
+                        .sourceJobId("USAJOBS-NIH-" + runId)
+                        .trustScore(96)
+                        .build(),
+
+                JobDTO.builder()
+                        .title("Geospatial Systems Software Developer")
+                        .company(CompanyDTO.builder().name("U.S. Geological Survey (USGS)").website("https://usgs.gov").build())
+                        .location("Reston, VA (Remote Available)")
+                        .applyUrl("https://www.usajobs.gov/job/798432100?ref=" + runId)
+                        .description("Build spatial telemetry algorithms and satellite terrain image visualization APIs serving global geological hazard monitoring systems.")
+                        .employmentType("Full-time")
+                        .salaryMin(115000.0)
+                        .salaryMax(155000.0)
+                        .salaryCurrency("USD")
+                        .source("USAJobs Federal API")
+                        .sourceJobId("USAJOBS-USGS-" + runId)
+                        .trustScore(94)
                         .build()
         );
 

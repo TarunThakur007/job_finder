@@ -196,10 +196,180 @@ export default function LoginView({
       }
     }
 
-    // Call Backend Authentication API via Vite Proxy
+    const performClientAuth = () => {
+      if (isStaffPortal) {
+        if (staffRole === 'admin') {
+          const validAdminPass = password === 'Admin@123' || password === 'Password@123';
+          if (!validAdminPass) {
+            setError('Incorrect password for Administrator. Default credential is: Admin@123');
+            setLoading(false);
+            return null;
+          }
+          return {
+            token: 'demo-admin-session-token',
+            user: { id: 1, name: 'Alex Vance (Admin Author)', email: cleanEmail, role: 'ROLE_ADMIN' }
+          };
+        }
+        if (staffRole === 'employee') {
+          const validEmpPass = password === 'Password@123' || password === 'Employee@123';
+          if (!validEmpPass) {
+            setError('Incorrect password for Recruiter. Default credential is: Password@123');
+            setLoading(false);
+            return null;
+          }
+          return {
+            token: 'demo-recruiter-session-token',
+            user: { id: 2, name: cleanEmail.includes('marcus') ? 'Marcus Brody' : 'Sarah Jenkins', email: cleanEmail, role: 'ROLE_EMPLOYEE' }
+          };
+        }
+      } else {
+        // Candidate Portal client authentication
+        try {
+          const savedCandidates = JSON.parse(localStorage.getItem('jobproof_registered_candidates') || '[]');
+          const existing = savedCandidates.find(c => c.email && c.email.toLowerCase() === cleanEmail);
+
+          if (isSignUp) {
+            const newCandidate = {
+              id: Date.now(),
+              name: fullName || cleanEmail.split('@')[0],
+              email: cleanEmail,
+              password: password,
+              role: 'ROLE_USER',
+              registeredAt: new Date().toISOString()
+            };
+            localStorage.setItem('jobproof_registered_candidates', JSON.stringify([newCandidate, ...savedCandidates.filter(c => c.email.toLowerCase() !== cleanEmail)]));
+            return { user: newCandidate, token: 'demo-user-session-token' };
+          } else if (existing) {
+            if (existing.password && existing.password !== password) {
+              setError('Incorrect password for this account. Please verify your password or sign up.');
+              setLoading(false);
+              return null;
+            }
+            return { user: existing, token: 'demo-user-session-token' };
+          } else {
+            // First time candidate sign in without prior signup
+            const autoCandidate = {
+              id: Date.now(),
+              name: fullName || (cleanEmail.includes('candidate') ? 'Demo Candidate' : cleanEmail.split('@')[0]),
+              email: cleanEmail,
+              password: password,
+              role: 'ROLE_USER'
+            };
+            localStorage.setItem('jobproof_registered_candidates', JSON.stringify([autoCandidate, ...savedCandidates]));
+            return { user: autoCandidate, token: 'demo-user-session-token' };
+          }
+        } catch (e) {
+          return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail }, token: 'demo-user-session-token' };
+        }
+      }
+      return null;
+    };
+
+    const finalizeLogin = (apiResponse) => {
+      setLoading(false);
+
+      let userRole = 'ROLE_USER';
+      let userName = (!isStaffPortal && isSignUp) ? fullName : (fullName || email.split('@')[0]);
+      let userTitle = 'Candidate / Job Seeker';
+      let userAvatar = '👤';
+      let userCompany = null;
+      let userId = apiResponse?.user?.id || null;
+
+      if (deployedMatch) {
+        userRole = deployedMatch.role;
+        userName = deployedMatch.name;
+        userTitle = deployedMatch.title || (deployedMatch.role === 'ROLE_ADMIN' ? 'Platform Administrator' : 'Company Recruiter');
+        userCompany = deployedMatch.company || (deployedMatch.role === 'ROLE_ADMIN' ? 'JobProof Core' : 'Partner Company');
+        userAvatar = '👤';
+      } else if (isStaffPortal && staffRole === 'employee') {
+        userRole = 'ROLE_EMPLOYEE';
+        userName = isSarahEmployee ? (cleanEmail.includes('marcus') ? 'Marcus Brody' : 'Sarah Jenkins') : (fullName || email.split('@')[0]);
+        userTitle = 'Company Recruiter & Hiring Partner';
+        userAvatar = '👤';
+        userCompany = cleanEmail.includes('stripe') ? 'Stripe' : 'Google';
+      } else if (isStaffPortal && staffRole === 'admin') {
+        userRole = 'ROLE_ADMIN';
+        userName = isAlexAdmin ? 'Alex Vance (Admin Author)' : (fullName || 'System Administrator');
+        userTitle = 'Head of Platform & Trust Governance';
+        userAvatar = '👤';
+        userCompany = 'JobProof Core';
+      } else {
+        userRole = 'ROLE_USER';
+        userName = apiResponse?.user?.name || (isSignUp ? fullName : (fullName || (cleanEmail.includes('cooper') ? 'Cooper Curtis' : cleanEmail.split('@')[0])));
+        userTitle = 'Verified Candidate';
+      }
+
+      if (!isStaffPortal && isSignUp) {
+        try {
+          const candidateRecord = {
+            id: userId || Date.now(),
+            name: userName,
+            email: email,
+            password: password,
+            role: 'ROLE_USER',
+            registeredAt: new Date().toISOString(),
+            status: 'REGISTERED'
+          };
+          const savedCandidates = JSON.parse(localStorage.getItem('jobproof_registered_candidates') || '[]');
+          localStorage.setItem('jobproof_registered_candidates', JSON.stringify([candidateRecord, ...savedCandidates.filter(c => c.email.toLowerCase() !== cleanEmail)]));
+          localStorage.setItem('jobproof_saved_email', email);
+        } catch (err) { }
+      } else if (!isStaffPortal) {
+        try {
+          localStorage.setItem('jobproof_saved_email', email);
+        } catch (err) { }
+      }
+
+      const userPayload = {
+        id: userId,
+        name: userName,
+        email: email,
+        role: userRole,
+        isDemo: false,
+        title: userTitle,
+        avatar: userAvatar,
+        company: userCompany,
+        panel: isStaffPortal ? staffRole : 'user',
+        token: apiResponse?.token || null,
+        loggedInAt: new Date().toLocaleTimeString()
+      };
+
+      try {
+        localStorage.setItem('jobproof_user', JSON.stringify(userPayload));
+        if (!isStaffPortal) {
+          if (rememberMe) {
+            localStorage.setItem('jobproof_remember_me', 'true');
+            localStorage.setItem('jobproof_saved_email', email);
+          } else {
+            localStorage.removeItem('jobproof_remember_me');
+            localStorage.removeItem('jobproof_saved_email');
+          }
+        }
+      } catch (e) { }
+
+      onLoginSuccess(userPayload);
+    };
+
+    // Support custom or deployed backend via VITE_API_URL if configured
+    const apiBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) ? import.meta.env.VITE_API_URL : '';
+    const isLocalhost = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const shouldUseRemoteBackend = Boolean(apiBase || isLocalhost);
+
+    // If on static cloud hosting (Vercel) without a remote backend URL, authenticate on client directly to prevent HTTP 405
+    if (!shouldUseRemoteBackend) {
+      setTimeout(() => {
+        const clientResult = performClientAuth();
+        if (clientResult) {
+          finalizeLogin(clientResult);
+        }
+      }, 100);
+      return;
+    }
+
     const apiEndpoint = (!isStaffPortal && isSignUp)
-      ? '/api/auth/register'
-      : '/api/auth/login';
+      ? `${apiBase}/api/auth/register`
+      : `${apiBase}/api/auth/login`;
 
     const authPayload = {
       name: (!isStaffPortal && isSignUp) ? fullName : undefined,
@@ -213,11 +383,21 @@ export default function LoginView({
       body: JSON.stringify(authPayload)
     })
       .then(async (res) => {
+        const contentType = res.headers.get('content-type') || '';
+        // If static hosting rewrote the /api route to /index.html or returned 404/405/5xx
+        if (contentType.includes('text/html') || res.status === 404 || res.status === 405 || res.status >= 500) {
+          throw new Error(`BACKEND_OFFLINE_STATUS_${res.status}`);
+        }
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(data?.error || `Authentication failed (HTTP ${res.status})`);
         }
         return data;
+      })
+      .then((apiResponse) => {
+        if (apiResponse) {
+          finalizeLogin(apiResponse);
+        }
       })
       .catch((err) => {
         if (!isStaffPortal && isSignUp && err.message && err.message.toLowerCase().includes('already exists')) {
@@ -225,123 +405,19 @@ export default function LoginView({
           setError(null);
           setRedirectNotice(`An account for ${cleanEmail} is already registered in the database. Please enter your password to sign in.`);
           setLoading(false);
-          return undefined;
+          return;
         }
-        const isNetworkErr = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'));
-        if (isNetworkErr) {
-          if (isStaffPortal && staffRole === 'admin' && (isAlexAdmin || (deployedMatch && deployedMatch.role === 'ROLE_ADMIN'))) {
-            return null;
-          }
-          if (isStaffPortal && staffRole === 'employee' && (isSarahEmployee || (deployedMatch && deployedMatch.role === 'ROLE_EMPLOYEE'))) {
-            return null;
-          }
-          // Resilient candidate fallback when backend is starting or offline
-          if (!isStaffPortal) {
-            try {
-              const savedCandidates = JSON.parse(localStorage.getItem('jobproof_registered_candidates') || '[]');
-              const existing = savedCandidates.find(c => c.email && c.email.toLowerCase() === cleanEmail);
-              if (isSignUp) {
-                return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail } };
-              } else if (existing) {
-                return { user: { name: existing.name, email: existing.email } };
-              } else {
-                return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail } };
-              }
-            } catch (e) {
-              return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail } };
-            }
-          }
+
+        // Resilient fallback if backend was expected but offline or unreachable
+        const clientFallback = performClientAuth();
+        if (clientFallback) {
+          finalizeLogin(clientFallback);
+          return;
         }
+
         setError(err.message || 'Authentication failed. Please check your credentials.');
         setLoading(false);
-        return undefined;
-      })
-      .then((apiResponse) => {
-        if (apiResponse === undefined) return;
-        setLoading(false);
-
-        let userRole = 'ROLE_USER';
-        let userName = (!isStaffPortal && isSignUp) ? fullName : (fullName || email.split('@')[0]);
-        let userTitle = 'Candidate / Job Seeker';
-        let userAvatar = '👤';
-        let userCompany = null;
-        let userId = apiResponse?.user?.id || null;
-
-        if (deployedMatch) {
-          userRole = deployedMatch.role;
-          userName = deployedMatch.name;
-          userTitle = deployedMatch.title || (deployedMatch.role === 'ROLE_ADMIN' ? 'Platform Administrator' : 'Company Recruiter');
-          userCompany = deployedMatch.company || (deployedMatch.role === 'ROLE_ADMIN' ? 'JobProof Core' : 'Partner Company');
-          userAvatar = '👤';
-        } else if (isStaffPortal && staffRole === 'employee') {
-          userRole = 'ROLE_EMPLOYEE';
-          userName = isSarahEmployee ? (cleanEmail.includes('marcus') ? 'Marcus Brody' : 'Sarah Jenkins') : (fullName || email.split('@')[0]);
-          userTitle = 'Company Recruiter & Hiring Partner';
-          userAvatar = '👤';
-          userCompany = cleanEmail.includes('stripe') ? 'Stripe' : 'Google';
-        } else if (isStaffPortal && staffRole === 'admin') {
-          userRole = 'ROLE_ADMIN';
-          userName = isAlexAdmin ? 'Alex Vance (Admin Author)' : (fullName || 'System Administrator');
-          userTitle = 'Head of Platform & Trust Governance';
-          userAvatar = '👤';
-          userCompany = 'JobProof Core';
-        } else {
-          userRole = 'ROLE_USER';
-          userName = apiResponse?.user?.name || (isSignUp ? fullName : (fullName || (cleanEmail.includes('cooper') ? 'Cooper Curtis' : cleanEmail.split('@')[0])));
-          userTitle = 'Verified Candidate';
-        }
-
-        if (!isStaffPortal && isSignUp) {
-          try {
-            const candidateRecord = {
-              id: userId || Date.now(),
-              name: userName,
-              email: email,
-              password: password,
-              role: 'ROLE_USER',
-              registeredAt: new Date().toISOString(),
-              status: 'REGISTERED'
-            };
-            const savedCandidates = JSON.parse(localStorage.getItem('jobproof_registered_candidates') || '[]');
-            localStorage.setItem('jobproof_registered_candidates', JSON.stringify([candidateRecord, ...savedCandidates.filter(c => c.email.toLowerCase() !== cleanEmail)]));
-            localStorage.setItem('jobproof_saved_email', email);
-          } catch (err) { }
-        } else if (!isStaffPortal) {
-          try {
-            localStorage.setItem('jobproof_saved_email', email);
-          } catch (err) { }
-        }
-
-        const userPayload = {
-          id: userId,
-          name: userName,
-          email: email,
-          role: userRole,
-          isDemo: false,
-          title: userTitle,
-          avatar: userAvatar,
-          company: userCompany,
-          panel: isStaffPortal ? staffRole : 'user',
-          token: apiResponse?.token || null,
-          loggedInAt: new Date().toLocaleTimeString()
-        };
-
-        try {
-          localStorage.setItem('jobproof_user', JSON.stringify(userPayload));
-          if (!isStaffPortal) {
-            if (rememberMe) {
-              localStorage.setItem('jobproof_remember_me', 'true');
-              localStorage.setItem('jobproof_saved_email', email);
-            } else {
-              localStorage.removeItem('jobproof_remember_me');
-              localStorage.removeItem('jobproof_saved_email');
-            }
-          }
-        } catch (e) { }
-
-        onLoginSuccess(userPayload);
-      })
-      .catch(() => { });
+      });
   };
 
   const handleQuickDemoLogin = () => {
@@ -349,12 +425,13 @@ export default function LoginView({
     setTimeout(() => {
       setLoading(false);
       const payload = {
-        name: 'Demo Candidate (Preview Mode)',
-        email: 'demo.candidate@jobproof.preview',
+        name: 'Tarun Pratap Singh',
+        headline: 'Java Backend Developer',
+        email: 'tarun.pratap@jobradar.io',
         role: 'ROLE_USER',
         isDemo: true,
-        title: 'Preview Explorer Account (View Only)',
-        avatar: '👤',
+        title: 'Java Backend Developer',
+        avatar: '/tarun-avatar.jpg',
         panel: 'user',
         loggedInAt: new Date().toLocaleTimeString()
       };
@@ -834,6 +911,30 @@ export default function LoginView({
                 >
                   <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400 mt-0.5" />
                   <span>{error}</span>
+                </div>
+              )}
+
+              {/* Demo Helper Quick Fill for Candidate Testing */}
+              {!isSignUp && (
+                <div className="mb-4 p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl text-xs text-slate-300 flex items-center justify-between gap-3 animate-fadeIn">
+                  <div>
+                    <p className="font-semibold text-teal-300 text-xs flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Candidate Demo Access
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">candidate@jobradar.io (Candidate@123)</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail('candidate@jobradar.io');
+                      setPassword('Candidate@123');
+                      setError(null);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 text-xs font-medium border border-teal-500/40 transition active:scale-95"
+                  >
+                    Quick Fill
+                  </button>
                 </div>
               )}
 

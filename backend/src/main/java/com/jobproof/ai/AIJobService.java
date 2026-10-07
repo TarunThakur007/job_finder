@@ -63,8 +63,31 @@ public class AIJobService {
                     return companyRepository.save(c);
                 });
 
-        Job job = new Job();
-        job.setTitle((String) data.getOrDefault("title", "Software Developer"));
+        String jobTitle = (String) data.getOrDefault("title", "Software Developer");
+        String applyUrl = (String) data.getOrDefault("applyUrl", "");
+        if (applyUrl == null || applyUrl.isBlank()) {
+            String email = (String) data.getOrDefault("contactEmail", "");
+            if (email != null && !email.isBlank()) {
+                applyUrl = "mailto:" + email;
+            } else {
+                applyUrl = "https://" + companyName.toLowerCase().replaceAll("[^a-z0-9]", "") + ".com/careers";
+            }
+        }
+
+        // Check if an existing staged job exists in Employee review queue (NEEDS_REVIEW)
+        final String finalApplyUrl = applyUrl;
+        Job job = jobRepository.findByVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW).stream()
+                .filter(j -> {
+                    boolean urlMatch = finalApplyUrl != null && !finalApplyUrl.isBlank() && finalApplyUrl.equalsIgnoreCase(j.getApplyUrl());
+                    String existingComp = j.getCompany() != null ? j.getCompany().getName() : "";
+                    boolean titleCompMatch = j.getTitle() != null && j.getTitle().equalsIgnoreCase(jobTitle)
+                            && existingComp.equalsIgnoreCase(companyName);
+                    return urlMatch || titleCompMatch;
+                })
+                .findFirst()
+                .orElseGet(Job::new);
+
+        job.setTitle(jobTitle);
         job.setCompany(company);
         job.setLocation((String) data.getOrDefault("location", "Hybrid / Remote"));
         job.setEmploymentType((String) data.getOrDefault("employmentType", "Full-time"));
@@ -78,25 +101,19 @@ public class AIJobService {
         }
 
         job.setVacanciesCount((Integer) data.getOrDefault("vacanciesCount", 1));
-
-        String applyUrl = (String) data.getOrDefault("applyUrl", "");
-        if (applyUrl == null || applyUrl.isBlank()) {
-            String email = (String) data.getOrDefault("contactEmail", "");
-            if (email != null && !email.isBlank()) {
-                applyUrl = "mailto:" + email;
-            } else {
-                applyUrl = "https://" + companyName.toLowerCase().replaceAll("[^a-z0-9]", "") + ".com/careers";
-            }
-        }
         job.setApplyUrl(applyUrl);
 
-        job.setSummary((String) data.getOrDefault("summary", "AI-ingested job requisition waiting for employee approval."));
+        job.setSummary("Gemini AI Agent extracted & updated job in Employee Staging Queue. Requires employee permission to list in User Section.");
         job.setDescription((String) data.getOrDefault("description", rawContent));
-        job.setSource("AI_GEMINI_INGESTION");
-        job.setSourceJobId("AI-" + System.currentTimeMillis());
-        job.setTrustScore((Integer) data.getOrDefault("trustScore", 85));
+        job.setSource("Gemini AI Extraction Agent");
+        if (job.getSourceJobId() == null) {
+            job.setSourceJobId("AI-" + System.currentTimeMillis());
+        }
+        job.setTrustScore((Integer) data.getOrDefault("trustScore", 88));
         job.setVerificationStatus(Job.VerificationStatus.NEEDS_REVIEW); // Staged for employee permission!
-        job.setPostedDate(LocalDateTime.now());
+        if (job.getPostedDate() == null) {
+            job.setPostedDate(LocalDateTime.now());
+        }
         job.setLastVerified(LocalDateTime.now());
         job.setRole(categorizeRole(job.getTitle()));
 
@@ -111,7 +128,9 @@ public class AIJobService {
             job.setSkills(jobSkills);
         }
 
-        return jobRepository.save(job);
+        Job savedJob = jobRepository.save(job);
+        log.info("[AIJobService] Gemini AI Extraction Agent updated job #{} ('{}') in Employee Staging Queue", savedJob.getId(), savedJob.getTitle());
+        return savedJob;
     }
 
     public void analyzeAndEnrichJob(Job job) {

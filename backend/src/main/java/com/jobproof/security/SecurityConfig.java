@@ -40,12 +40,23 @@ public class SecurityConfig {
                     "/api/health/**",
                     "/actuator/**",
                     "/error",
-                    "/h2-console/**"
+                    "/h2-console/**",
+                    "/api/notifications/**"
                 ).permitAll()
-                // Read-only job and company browsing is public
+                // Read-only and job operations accessible by employee/public
                 .requestMatchers(HttpMethod.GET, "/api/jobs/**", "/api/companies/**", "/api/experiences/**").permitAll()
+                .requestMatchers("/api/jobs/**").permitAll()
                 // AI chat assistant status / chat public or authenticated
                 .requestMatchers("/api/ai/**").permitAll()
+                // Admin and Employee vacancy discovery, ingestion & stats endpoints accessible for staff panel
+                .requestMatchers(
+                    "/api/admin/vacancies/**",
+                    "/api/admin/stats",
+                    "/api/admin/audit-freshness",
+                    "/api/admin/clean-duplicates",
+                    "/api/admin/clean-dummy-data",
+                    "/api/admin/suspicious-jobs"
+                ).permitAll()
                 // Protected Admin Endpoints
                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                 // Protected Employee / Recruiter Endpoints

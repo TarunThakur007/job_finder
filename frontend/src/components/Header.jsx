@@ -163,7 +163,7 @@ export default function Header({
                 <button
                   onClick={() => {
                     if (currentUser?.isDemo) {
-                      onRequireRegistration && onRequireRegistration("Application Tracker Cockpit requires a candidate account. Please register to track your applications.");
+                      onRequireRegistration && onRequireRegistration("Application Tracker requires a candidate account. Please register to track your applications.");
                       return;
                     }
                     setActiveTab('application-tracker');
@@ -194,7 +194,7 @@ export default function Header({
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Profile Cockpit
+                  Profile
                 </button>
               </>
             )}
@@ -257,26 +257,30 @@ export default function Header({
               <div className="flex items-center gap-2">
                 <div 
                   onClick={() => setShowProfileSidebar(true)}
-                  className="flex items-center gap-2.5 bg-[#141922] pl-2 pr-3 py-1.5 rounded-xl border border-[#253044] hover:border-teal-500/40 cursor-pointer transition select-none shadow-sm group"
+                  className="flex items-center gap-2.5 bg-[#081524] hover:bg-[#0c1f33] pl-1.5 pr-3 py-1 rounded-2xl border border-[#13273e] hover:border-[#00e5c9]/50 cursor-pointer transition-all select-none shadow-md group"
                   title="Open Workspace Profile"
                 >
-                  <div className="w-6 h-6 rounded-lg bg-[#1A2230] border border-[#253044] flex items-center justify-center text-xs select-none">
-                    {currentUser.avatar || '👤'}
+                  {/* Circular Avatar with Green Online Dot */}
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden border border-[#00e5c9]/40 flex-shrink-0 shadow-sm bg-[#060e19]">
+                    <img 
+                      src={currentUser?.avatar && currentUser.avatar.startsWith('/') ? currentUser.avatar : '/tarun-avatar.jpg'} 
+                      alt={currentUser?.name || 'Tarun Pratap Singh'} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.src = '/tarun-avatar.jpg'; }}
+                    />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#10b981] border-2 border-[#081524] shadow-sm" />
                   </div>
 
                   <div className="hidden sm:flex flex-col text-left">
-                    <span className="text-xs font-semibold text-slate-200 leading-none flex items-center gap-1 group-hover:text-teal-300 transition-colors">
-                      {currentUser.name}
-                      <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-teal-300" />
+                    <span className="text-xs font-bold text-white leading-tight flex items-center gap-1 group-hover:text-[#00e5c9] transition-colors">
+                      {currentUser?.name || 'Tarun Pratap Singh'}
+                      <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-[#00e5c9] transition-transform group-hover:translate-y-0.5" />
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono leading-tight mt-0.5">
-                      {currentUser.isDemo 
-                        ? 'Preview Mode' 
-                        : isEmployee 
-                        ? 'Employee' 
-                        : isAdmin 
-                        ? 'Administrator' 
-                        : 'Candidate'}
+                    <span className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+                      <span className="text-emerald-400 font-semibold">Online</span>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-400 truncate max-w-[120px]">{currentUser?.headline || currentUser?.title || 'Java Backend Developer'}</span>
                     </span>
                   </div>
                 </div>

@@ -27,7 +27,12 @@ import {
   Cpu,
   FileText,
   Store,
-  Rocket
+  Rocket,
+  Copy,
+  CheckCheck,
+  Globe,
+  Link as LinkIcon,
+  Filter
 } from 'lucide-react';
 import EditAndGrantPermissionModal from './EditAndGrantPermissionModal';
 
@@ -57,6 +62,19 @@ export default function EmployeeControlSection({
   const [closedJobsSearch, setClosedJobsSearch] = useState('');
   const [editingJob, setEditingJob] = useState(null);
   const [grantingIds, setGrantingIds] = useState(new Set());
+  const [stagedSourceFilter, setStagedSourceFilter] = useState('ALL');
+  const [copiedUrlId, setCopiedUrlId] = useState(null);
+
+  const handleCopyApplyUrl = (jobId, url) => {
+    if (!url) return;
+    try {
+      navigator.clipboard?.writeText(url);
+      setCopiedUrlId(jobId);
+      setTimeout(() => setCopiedUrlId(null), 2500);
+    } catch (e) {
+      console.warn('Clipboard write failed:', e);
+    }
+  };
 
   // Gemini AI Raw Vacancy Ingestion & Permission Gateway State
   const [aiIngestText, setAiIngestText] = useState('');
@@ -309,6 +327,38 @@ export default function EmployeeControlSection({
     }
   };
 
+  const handleGrantClosePermission = async (notification) => {
+    const notifId = notification.id;
+    const jId = notification.jobId;
+    const jTitle = notification.jobTitle || 'Role';
+
+    if (!window.confirm(`Grant Employee Permission to close "${jTitle}"? This role will be immediately unlisted from the public User page and moved to the Closed Vacancies section.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/notifications/${notifId}/confirm-close`, { method: 'POST' });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, isRead: true, message: n.message + ' [Closed with Employee Permission]' } : n));
+        setUnreadNotificationsCount(prev => Math.max(0, prev - 1));
+
+        if (jId && jId > 0) {
+          if (onCloseJob) onCloseJob(jId);
+          fetchClosedJobs();
+        }
+
+        setActionNotice({
+          type: 'success',
+          msg: `Employee Permission Granted: "${jTitle}" has been closed and removed from public search.`,
+          actionLabel: 'View Closed Jobs',
+          onAction: () => setEmployeeTab('closed')
+        });
+      }
+    } catch (err) {
+      console.error('Error granting close permission:', err);
+    }
+  };
+
   const handleGrantPermission = async (jobId, jobTitle) => {
     if (grantingIds.has(jobId)) return;
     setGrantingIds(prev => new Set(prev).add(jobId));
@@ -493,9 +543,10 @@ export default function EmployeeControlSection({
       const res = await fetch('/api/admin/audit-freshness', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
+        const flagged = data.flaggedCount || data.closedCount || 0;
         setActionNotice({
           type: 'success',
-          msg: `AI Freshness Sentinel Audit Complete: Audited ${data.totalAudited || 0} listings. ${data.closedCount || 0} closed vacancies detected & unlisted.`
+          msg: `AI Freshness Sentinel Audit Complete: Audited ${data.totalAudited || activePublishedJobs.length || 0} listings. ${flagged} closure update(s) generated. Jobs remain active until an employee grants permission to close.`
         });
         fetchNotifications();
         fetchPendingJobs(true);
@@ -519,14 +570,26 @@ export default function EmployeeControlSection({
     return () => clearInterval(interval);
   }, []);
 
-  // Filter pending vacancies based on search
+  // Filter pending vacancies based on source & search
   const filteredVacancies = pendingJobs.filter(j => {
+    if (stagedSourceFilter !== 'ALL') {
+      const src = (j.source || '').toLowerCase();
+      if (stagedSourceFilter === 'GEMINI_AI' && !src.includes('gemini') && !src.includes('ingestion') && !src.includes('ai')) return false;
+      if (stagedSourceFilter === 'JOOBLE' && !src.includes('jooble')) return false;
+      if (stagedSourceFilter === 'USAJOBS' && !src.includes('usajobs')) return false;
+      if (stagedSourceFilter === 'REMOTEOK' && !src.includes('remoteok')) return false;
+      if (stagedSourceFilter === 'JOBICY' && !src.includes('jobicy')) return false;
+      if (stagedSourceFilter === 'ARBEITNOW' && !src.includes('arbeitnow')) return false;
+      if (stagedSourceFilter === 'ATS' && (src.includes('jobicy') || src.includes('remoteok') || src.includes('jooble') || src.includes('usajobs') || src.includes('arbeitnow') || src.includes('gemini'))) return false;
+    }
+
     if (!vacancySearch) return true;
     const term = vacancySearch.toLowerCase();
     const compName = (j.company?.name || '').toLowerCase();
     const title = (j.title || '').toLowerCase();
     const location = (j.location || '').toLowerCase();
-    return compName.includes(term) || title.includes(term) || location.includes(term);
+    const applyUrl = (j.applyUrl || '').toLowerCase();
+    return compName.includes(term) || title.includes(term) || location.includes(term) || applyUrl.includes(term);
   });
 
   const activePublishedJobs = React.useMemo(() => {
@@ -695,7 +758,7 @@ export default function EmployeeControlSection({
             </h3>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Every hour, the AI Sentinel pings all live vacancies listed on the website. If an employer removes the position or their ATS flags it as closed/expired, the AI agent <strong>instantly unlists it</strong> from the public search and dispatches an alert here for employee review.
+              Every hour, the AI Sentinel pings all live vacancies listed on the website. If an employer removes the position or their ATS flags it as closed/expired, the AI agent <strong>dispatches an advisory alert here for employee review</strong>. In strict compliance with policy, <strong>jobs are NOT closed automatically by AI — job closure can ONLY be executed with the permission of an employee</strong>.
             </p>
           </div>
 
@@ -776,12 +839,24 @@ export default function EmployeeControlSection({
                     </div>
 
                     {!notif.isRead && (
-                      <button
-                        onClick={() => handleMarkNotificationRead(notif.id)}
-                        className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold border border-rose-500/40 whitespace-nowrap"
-                      >
-                        Acknowledge
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {notif.jobId > 0 && (
+                          <button
+                            onClick={() => handleGrantClosePermission(notif)}
+                            className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-black border border-rose-400/50 shadow-sm active:scale-95 flex items-center gap-1.5"
+                            title="Grant employee permission to close this vacancy"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Grant Permission to Close</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleMarkNotificationRead(notif.id)}
+                          className="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold border border-gray-700 whitespace-nowrap"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -876,10 +951,42 @@ export default function EmployeeControlSection({
             <button
               onClick={() => handleTriggerDiscovery('USAJOBS')}
               disabled={discovering}
-              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-yellow-300 border border-yellow-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-blue-300 border border-blue-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
               title="Ingest US Federal IT and Cyber jobs from USAJobs API"
             >
               <span>+ USAJobs Gov</span>
+            </button>
+            <button
+              onClick={() => handleTriggerDiscovery('REMOTEOK')}
+              disabled={discovering}
+              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-teal-300 border border-teal-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              title="Ingest verified remote developer roles from RemoteOK API"
+            >
+              <span>+ RemoteOK Feed</span>
+            </button>
+            <button
+              onClick={() => handleTriggerDiscovery('JOBICY')}
+              disabled={discovering}
+              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-purple-300 border border-purple-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              title="Ingest engineering vacancies from Jobicy Remote API"
+            >
+              <span>+ Jobicy Remote</span>
+            </button>
+            <button
+              onClick={() => handleTriggerDiscovery('ARBEITNOW')}
+              disabled={discovering}
+              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              title="Ingest European tech vacancies from Arbeitnow API"
+            >
+              <span>+ Arbeitnow Feed</span>
+            </button>
+            <button
+              onClick={() => handleTriggerDiscovery('ATS')}
+              disabled={discovering}
+              className="px-3 py-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-amber-300 border border-amber-500/30 text-xs font-bold transition flex items-center gap-1 active:scale-95 disabled:opacity-60"
+              title="Ingest direct ATS feeds (Greenhouse, Lever, Ashby)"
+            >
+              <span>+ Direct ATS</span>
             </button>
           </div>
         </div>
@@ -1010,23 +1117,56 @@ export default function EmployeeControlSection({
         </div>
 
         {/* Search & Filter Toolbar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by job title, company, or location..."
-              value={vacancySearch}
-              onChange={(e) => setVacancySearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
-            />
+        {/* Feed Source Filter Chips & Search Toolbar */}
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/60">
+            <span className="text-[11px] font-bold text-gray-400 mr-1 flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-yellow-400" />
+              Filter by Source Feed:
+            </span>
+            {[
+              { id: 'ALL', label: `All Feeds (${pendingJobs.length})` },
+              { id: 'GEMINI_AI', label: '🤖 Gemini AI Agent' },
+              { id: 'JOOBLE', label: 'Jooble API' },
+              { id: 'USAJOBS', label: 'USAJobs Gov' },
+              { id: 'REMOTEOK', label: 'RemoteOK API' },
+              { id: 'JOBICY', label: 'Jobicy Remote' },
+              { id: 'ARBEITNOW', label: 'Arbeitnow API' },
+              { id: 'ATS', label: 'Direct ATS' },
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setStagedSourceFilter(chip.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  stagedSourceFilter === chip.id
+                    ? 'bg-yellow-400 text-gray-950 font-black shadow-sm shadow-yellow-400/20'
+                    : 'bg-[#18181c] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
-          <div className="text-xs text-gray-400 font-semibold flex items-center gap-2">
-            <span>Showing:</span>
-            <span className="px-2.5 py-1 rounded-lg bg-[#18181c] border border-gray-800 text-yellow-400 font-extrabold">
-              {filteredVacancies.length} of {pendingJobs.length} Staged Positions
-            </span>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by job title, company, location, or apply link..."
+                value={vacancySearch}
+                onChange={(e) => setVacancySearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400"
+              />
+            </div>
+
+            <div className="text-xs text-gray-400 font-semibold flex items-center gap-2">
+              <span>Showing:</span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#18181c] border border-gray-800 text-yellow-400 font-extrabold">
+                {filteredVacancies.length} of {pendingJobs.length} Staged Positions
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1127,47 +1267,12 @@ export default function EmployeeControlSection({
                       )}
                     </div>
 
-                    {/* Trust Gauge & Action CTAs */}
-                    <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0">
-                      <div className="text-right pr-2">
+                    {/* Trust Score Gauge */}
+                    <div className="flex items-center gap-3 lg:flex-shrink-0">
+                      <div className="text-right px-3 py-1.5 rounded-xl bg-[#222228] border border-gray-800">
                         <p className="text-[10px] text-gray-500 font-bold uppercase">Computed Trust</p>
-                        <p className="text-base font-black text-yellow-400">{trustScore}%</p>
+                        <p className="text-sm font-black text-yellow-400">{trustScore}%</p>
                       </div>
-
-                      {/* Edit & Update Details Button */}
-                      <button
-                        type="button"
-                        onClick={() => setEditingJob(job)}
-                        className="px-4 py-2.5 rounded-xl bg-[#222228] hover:bg-gray-800 text-yellow-300 text-xs font-bold transition flex items-center gap-1.5 border border-yellow-500/30 active:scale-95"
-                        title="Update title, salary, or apply link before publishing"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Update Job Details</span>
-                      </button>
-
-                      {/* Grant Permission & Publish Live Button */}
-                      <button
-                        type="button"
-                        disabled={grantingIds.has(job.id)}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleGrantPermission(job.id, job.title);
-                        }}
-                        className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-yellow-500/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                        title="Authorize AI response and publish live to public website"
-                      >
-                        {grantingIds.has(job.id) ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>Granting Permission...</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                            <span>Grant Permission & Publish Live</span>
-                          </>
-                        )}
-                      </button>
 
                       {/* Reject / Discard */}
                       <button
@@ -1177,31 +1282,131 @@ export default function EmployeeControlSection({
                           handleRejectVacancy(job.id, job.title);
                         }}
                         className="p-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 transition flex items-center justify-center border border-rose-800/40 active:scale-95"
-                        title="Discard listing"
+                        title="Discard listing from review queue"
                       >
                         <Trash2 className="w-4 h-4 text-rose-400" />
                       </button>
                     </div>
                   </div>
 
-                  {/* AI Extracted Highlights & Apply URL Check */}
-                  <div className="pt-3 border-t border-gray-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                    <p className="text-gray-400 line-clamp-1 max-w-2xl text-[11px]">
+                  {/* AI Extracted Highlights & Job Summary */}
+                  <div className="pt-2 text-xs">
+                    <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2">
                       <span className="font-bold text-gray-300 mr-1.5">AI Summary:</span>
-                      {job.description ? job.description.replace(/<[^>]*>?/gm, '').slice(0, 160) + '...' : 'Verified vacancy discovered from official employer career feed.'}
+                      {job.description ? job.description.replace(/<[^>]*>?/gm, '').slice(0, 220) + '...' : 'Verified position awaiting employee permission.'}
                     </p>
+                  </div>
 
-                    {job.applyUrl && (
-                      <a
-                        href={job.applyUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-yellow-400 hover:underline flex items-center gap-1 flex-shrink-0"
+                  {/* 🔗 EMPLOYEE APPLICATION ENDPOINT VERIFICATION & PERMISSION CENTER */}
+                  <div className="p-4 rounded-2xl bg-[#141418] border border-yellow-500/25 space-y-3.5 shadow-inner">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-yellow-400 flex items-center gap-1.5">
+                            <LinkIcon className="w-3.5 h-3.5 text-yellow-400" />
+                            Application Endpoint & Apply Link
+                          </span>
+                          {job.applyUrl && (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-yellow-400/10 text-yellow-300 border border-yellow-500/30 flex items-center gap-1">
+                              <Globe className="w-2.5 h-2.5" />
+                              {job.applyUrl.startsWith('mailto:') 
+                                ? 'Direct Email Apply' 
+                                : (() => {
+                                    try {
+                                      return new URL(job.applyUrl).hostname.replace('www.', '');
+                                    } catch(e) {
+                                      return 'External Employer Link';
+                                    }
+                                  })()}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-gray-300 font-mono truncate max-w-2xl select-all">
+                          {job.applyUrl || 'Apply URL is missing - click Update Details to add one.'}
+                        </p>
+                      </div>
+
+                      {/* Quick Apply URL Test & Copy Tools */}
+                      <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                        {job.applyUrl && (
+                          <>
+                            <a
+                              href={job.applyUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-2 rounded-xl bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-300 border border-yellow-500/30 text-xs font-bold transition flex items-center gap-1.5 active:scale-95 shadow-sm"
+                              title="Test and verify authentic employer apply destination in a new browser tab"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-yellow-400" />
+                              <span>Inspect & Test Apply Link</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              onClick={() => handleCopyApplyUrl(job.id, job.applyUrl)}
+                              className="px-3 py-2 rounded-xl bg-[#222228] hover:bg-gray-800 text-gray-300 hover:text-white border border-gray-700 text-xs font-bold transition flex items-center gap-1.5 active:scale-95"
+                              title="Copy application link to clipboard"
+                            >
+                              {copiedUrlId === job.id ? (
+                                <>
+                                  <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span className="text-emerald-400">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-gray-400" />
+                                  <span>Copy Link</span>
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingJob(job)}
+                          className="px-3 py-2 rounded-xl bg-[#222228] hover:bg-gray-800 text-yellow-300 border border-yellow-500/30 text-xs font-bold transition flex items-center gap-1.5 active:scale-95"
+                          title="Update apply link, salary, or requirements"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Update Details</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Permission Status Gateway Banner & Primary Publish CTA */}
+                    <div className="pt-3 border-t border-gray-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-amber-300/90 font-medium">
+                        <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                        <span>
+                          <strong>Hidden from Candidates:</strong> Employee permission is required to list this job on the public User Section.
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={grantingIds.has(job.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleGrantPermission(job.id, job.title);
+                        }}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-gray-950 text-xs font-black transition flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                        title="Authorize apply link and publish live to candidate User Section"
                       >
-                        <span>Check Apply Link</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
+                        {grantingIds.has(job.id) ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Publishing to User Section...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="w-4 h-4 text-gray-950 stroke-[2.5]" />
+                            <span>Grant Permission (List in User Section)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1275,6 +1480,12 @@ export default function EmployeeControlSection({
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-gray-300 bg-[#222228] border border-gray-700">
                             {job.jobType || job.employmentType || 'Full-time'}
                           </span>
+                          {job.summary && job.summary.includes('AI Freshness Sentinel Advisory') && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1 animate-pulse">
+                              <AlertTriangle className="w-3 h-3 text-rose-400" />
+                              AI Alert: Employee Permission Needed to Close
+                            </span>
+                          )}
                         </div>
 
                         <h4 className="text-base sm:text-lg font-black text-white hover:text-teal-300 transition-colors">
@@ -1316,11 +1527,15 @@ export default function EmployeeControlSection({
                           type="button"
                           disabled={isClosing}
                           onClick={() => handleCloseJob(job)}
-                          className="px-3.5 py-2.5 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-600/60 hover:border-rose-500 text-rose-200 hover:text-white text-xs font-bold transition flex items-center gap-1.5 shadow-lg shadow-rose-950/30 active:scale-95 disabled:opacity-50"
+                          className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 shadow-lg active:scale-95 disabled:opacity-50 ${
+                            job.summary && job.summary.includes('AI Freshness Sentinel Advisory')
+                              ? 'bg-rose-600 hover:bg-rose-500 border-rose-400 text-white shadow-rose-900/50 animate-pulse'
+                              : 'bg-rose-950/80 hover:bg-rose-900 border-rose-600/60 hover:border-rose-500 text-rose-200 hover:text-white shadow-rose-950/30'
+                          }`}
                           title="Close this opening and unlist it from the user page (moves to Closed tab)"
                         >
-                          <Lock className="w-3.5 h-3.5 text-rose-400" />
-                          <span>{isClosing ? 'Closing...' : 'Close Job'}</span>
+                          <Lock className="w-3.5 h-3.5 text-rose-300" />
+                          <span>{isClosing ? 'Closing...' : (job.summary && job.summary.includes('AI Freshness Sentinel Advisory') ? 'Grant Permission to Close' : 'Close Job')}</span>
                         </button>
 
                         {/* Action: Delete Job Permanently */}

@@ -188,6 +188,7 @@ public class GeminiClientService {
     }
 
     private String extractJsonPayload(String raw) {
+        if (raw == null) return "{}";
         String trimmed = raw.trim();
         if (trimmed.startsWith("```json")) {
             trimmed = trimmed.substring(7);
@@ -197,7 +198,14 @@ public class GeminiClientService {
         if (trimmed.endsWith("```")) {
             trimmed = trimmed.substring(0, trimmed.length() - 3);
         }
-        return trimmed.trim();
+        trimmed = trimmed.trim();
+
+        int firstBrace = trimmed.indexOf('{');
+        int lastBrace = trimmed.lastIndexOf('}');
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            return trimmed.substring(firstBrace, lastBrace + 1);
+        }
+        return trimmed;
     }
 
     private ResumeDTO parseResumeDtoFromJson(JsonNode node, String filename, String fileType, Long fileSize, String role, String rawResumeText, String jobDescription) {

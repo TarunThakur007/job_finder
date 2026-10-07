@@ -11,7 +11,6 @@ import {
   Award,
   ArrowUpRight,
   Send,
-  Kanban,
   FileText,
   SlidersHorizontal,
   ChevronRight,
@@ -23,8 +22,29 @@ import {
   Check,
   Clock,
   Layers,
-  GraduationCap
+  GraduationCap,
+  Compass,
+  Circle,
+  Linkedin,
+  Github,
+  Copy,
+  CheckCheck,
+  Globe,
+  Link as LinkIcon
 } from 'lucide-react';
+
+const LeetCodeIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M13.483 0a1.374 1.374 0 0 0-.961.438L7.116 6.226l-3.854 4.126a5.266 5.266 0 0 0-1.209 2.104 5.35 5.35 0 0 0-.125.513 5.527 5.527 0 0 0 .062 2.362 5.83 5.83 0 0 0 .349 1.017 5.938 5.938 0 0 0 1.271 1.818l4.277 4.193.039.038c2.248 2.165 5.852 2.133 8.063-.074l2.396-2.392c.54-.54.54-1.414.003-1.955a1.378 1.378 0 0 0-1.951-.003l-2.396 2.392a3.021 3.021 0 0 1-4.205.038l-.02-.019-4.276-4.193c-.652-.64-.972-1.469-.948-2.263a2.68 2.68 0 0 1 .066-.523 2.545 2.545 0 0 1 .619-1.164L9.13 8.314c.015-.016.03-.031.045-.046l4.307-4.613a1.376 1.376 0 0 0-1-2.655z" fill="#FFA116" />
+    <path d="M9.833 10.903a1.376 1.376 0 1 0 0 2.753h11.791a1.376 1.376 0 1 0 0-2.753H9.833z" fill="#FFA116" />
+  </svg>
+);
+
+const GfgIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12.003 2.001C6.48 2.001 2 6.482 2 12.003c0 5.523 4.48 10.003 10.003 10.003 5.522 0 10.002-4.48 10.002-10.003 0-5.521-4.48-10.002-10.002-10.002zm-1.89 13.992c-1.282 0-2.324-1.042-2.324-2.324 0-1.282 1.042-2.324 2.324-2.324.71 0 1.344.321 1.767.828l-1.04.78c-.201-.264-.52-.432-.88-.432-.634 0-1.148.514-1.148 1.148 0 .634.514 1.148 1.148 1.148.552 0 1.011-.39 1.121-.912H10.11v-1.15h2.38v.284c0 1.635-1.082 2.942-2.377 2.942zm5.78 0c-1.282 0-2.324-1.042-2.324-2.324 0-1.282 1.042-2.324 2.324-2.324.71 0 1.344.321 1.767.828l-1.04.78c-.201-.264-.52-.432-.88-.432-.634 0-1.148.514-1.148 1.148 0 .634.514 1.148 1.148 1.148.552 0 1.011-.39 1.121-.912h-1.123v-1.15h2.38v.284c0 1.635-1.082 2.942-2.377 2.942z" fill="#2F8D46" />
+  </svg>
+);
 
 const DEFAULT_SKILLS = [
   'Java', 'Spring Boot', 'PostgreSQL', 'Docker', 'Kubernetes',
@@ -119,17 +139,34 @@ export default function CandidateProfileSection({
     return currentUser?.trustScore || 96;
   });
   const [showTrustScoreAdjuster, setShowTrustScoreAdjuster] = useState(false);
+  // 4 Required Profile Verification Credentials (LinkedIn, GitHub, LeetCode, GFG)
+  const [profileCredentials, setProfileCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jobproof_candidate_credentials');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      linkedin: currentUser?.linkedinUrl || 'https://linkedin.com/in/alexmorgan-dev',
+      github: currentUser?.githubUrl || 'https://github.com/alexmorgan-dev',
+      leetcode: currentUser?.leetcodeUrl || 'https://leetcode.com/u/alexmorgan_dev',
+      gfg: currentUser?.gfgUrl || 'https://geeksforgeeks.org/user/alexmorgan_dev'
+    };
+  });
+
+  const [editingCredKey, setEditingCredKey] = useState(null);
+  const [credInputUrl, setCredInputUrl] = useState('');
+  const [copiedCredKey, setCopiedCredKey] = useState(null);
+
   const [trustSignals, setTrustSignals] = useState(() => {
     try {
       const saved = localStorage.getItem('jobproof_candidate_trust_signals');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
-      identity: true,
+      linkedin: true,
       github: true,
-      skills: true,
-      atsResume: true,
-      workEligibility: true
+      leetcode: true,
+      gfg: true
     };
   });
 
@@ -144,19 +181,64 @@ export default function CandidateProfileSection({
     }
   };
 
+  const handleCopyCredential = (key, url) => {
+    if (!url) return;
+    try {
+      navigator.clipboard?.writeText(url);
+      setCopiedCredKey(key);
+      setTimeout(() => setCopiedCredKey(null), 2500);
+    } catch (e) {}
+  };
+
+  const handleSaveCredential = (key) => {
+    let clean = credInputUrl ? credInputUrl.trim() : '';
+    if (clean) {
+      if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+        if (key === 'linkedin') clean = `https://linkedin.com/in/${clean.replace('@', '')}`;
+        else if (key === 'github') clean = `https://github.com/${clean.replace('@', '')}`;
+        else if (key === 'leetcode') clean = `https://leetcode.com/u/${clean.replace('@', '')}`;
+        else if (key === 'gfg') clean = `https://geeksforgeeks.org/user/${clean.replace('@', '')}`;
+        else clean = `https://${clean}`;
+      }
+    }
+    const updated = { ...profileCredentials, [key]: clean };
+    setProfileCredentials(updated);
+    try {
+      localStorage.setItem('jobproof_candidate_credentials', JSON.stringify(updated));
+    } catch (e) {}
+
+    const updatedSignals = {
+      ...trustSignals,
+      [key]: Boolean(clean)
+    };
+    setTrustSignals(updatedSignals);
+    try {
+      localStorage.setItem('jobproof_candidate_trust_signals', JSON.stringify(updatedSignals));
+    } catch (e) {}
+
+    let calc = 50;
+    if (updatedSignals.linkedin) calc += 12.5;
+    if (updatedSignals.github) calc += 12.5;
+    if (updatedSignals.leetcode) calc += 12.5;
+    if (updatedSignals.gfg) calc += 12.5;
+    updateTrustScore(calc);
+
+    setEditingCredKey(null);
+    setCredInputUrl('');
+  };
+
   const handleToggleSignal = (key) => {
     const updated = { ...trustSignals, [key]: !trustSignals[key] };
     setTrustSignals(updated);
     try {
       localStorage.setItem('jobproof_candidate_trust_signals', JSON.stringify(updated));
     } catch (e) {}
-    // Calculate score: Base 50 + 10 for each signal
+    // Calculate score: Base 50 + 12.5 for each of 4 credentials
     let calc = 50;
-    if (updated.identity) calc += 10;
-    if (updated.github) calc += 10;
-    if (updated.skills) calc += 10;
-    if (updated.atsResume) calc += 10;
-    if (updated.workEligibility) calc += 10;
+    if (updated.linkedin) calc += 12.5;
+    if (updated.github) calc += 12.5;
+    if (updated.leetcode) calc += 12.5;
+    if (updated.gfg) calc += 12.5;
     updateTrustScore(calc);
   };
 
@@ -391,13 +473,12 @@ export default function CandidateProfileSection({
             </div>
 
             {/* Modular Verification Signals Checklist */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
               {[
-                { key: 'identity', label: 'Email & Identity', pts: '+10 pts', desc: 'Direct corporate email verify' },
-                { key: 'github', label: 'GitHub Provenance', pts: '+10 pts', desc: 'Commit history & repo audit' },
-                { key: 'skills', label: 'Stack Assessment', pts: '+10 pts', desc: 'Validated skills matrix' },
-                { key: 'atsResume', label: 'ATS Parsed Resume', pts: '+10 pts', desc: 'Normalized keyword schema' },
-                { key: 'workEligibility', label: 'Work Authorization', pts: '+10 pts', desc: 'Employer clearance confirmed' }
+                { key: 'linkedin', label: 'LinkedIn Profile', pts: '+12.5 pts', desc: 'Professional experience verify' },
+                { key: 'github', label: 'GitHub Profile', pts: '+12.5 pts', desc: 'Code repository & commit audit' },
+                { key: 'leetcode', label: 'LeetCode Profile', pts: '+12.5 pts', desc: 'Algorithmic problem-solving record' },
+                { key: 'gfg', label: 'GFG Profile', pts: '+12.5 pts', desc: 'GeeksforGeeks technical rankings' }
               ].map((sig) => {
                 const active = trustSignals[sig.key];
                 return (
@@ -429,7 +510,84 @@ export default function CandidateProfileSection({
         )}
       </div>
 
-      {/* 2. FOUR QUICK STAT METRICS CARDS */}
+      {/* 2. CANDIDATE PROFILE COMPLETION SECTION (USER SECTION EXCLUSIVE) */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-[#0E131F] border border-[#253044] shadow-xl relative overflow-hidden group">
+        {/* Decorative Glow backlight */}
+        <div className="absolute top-0 right-0 w-96 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+                Profile Completion
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-[#00e5c9]/15 text-[#00e5c9] border border-[#00e5c9]/30 shadow-sm">
+                85% Complete
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 max-w-xl">
+              Complete all candidate milestones to increase employer search ranking and activate automated ATS job matching.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold text-slate-300">4 of 5 Milestones Achieved</span>
+          </div>
+        </div>
+
+        {/* Progress Bar (85% filled) */}
+        <div className="w-full h-2.5 rounded-full bg-[#07101b] overflow-hidden p-0.5 border border-[#14263b] mt-4 relative z-10">
+          <div 
+            className="h-full bg-gradient-to-r from-[#00bda6] to-[#00e5c9] rounded-full shadow-[0_0_12px_rgba(0,229,201,0.5)] transition-all duration-700"
+            style={{ width: '85%' }}
+          />
+        </div>
+
+        {/* 5 Milestone Status Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-4 relative z-10">
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#141922] border border-teal-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2 text-slate-200">
+              <Compass className="w-3.5 h-3.5 text-teal-400" />
+              <span className="font-semibold text-[11px] truncate">Personal Info</span>
+            </div>
+            <Check className="w-4 h-4 text-[#00e5c9] stroke-[2.5] flex-shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#141922] border border-teal-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2 text-slate-200">
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+              <span className="font-semibold text-[11px] truncate">Skills & Exp</span>
+            </div>
+            <Check className="w-4 h-4 text-[#00e5c9] stroke-[2.5] flex-shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#141922] border border-teal-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2 text-slate-200">
+              <GraduationCap className="w-3.5 h-3.5 text-teal-400" />
+              <span className="font-semibold text-[11px] truncate">Education</span>
+            </div>
+            <Check className="w-4 h-4 text-[#00e5c9] stroke-[2.5] flex-shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#141922] border border-teal-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2 text-slate-200">
+              <FileText className="w-3.5 h-3.5 text-teal-400" />
+              <span className="font-semibold text-[11px] truncate">ATS Resume</span>
+            </div>
+            <Check className="w-4 h-4 text-[#00e5c9] stroke-[2.5] flex-shrink-0" />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#141922] border border-amber-500/30 text-xs shadow-sm">
+            <div className="flex items-center gap-2 text-amber-200">
+              <Compass className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-semibold text-[11px] truncate">Job Preferences</span>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex-shrink-0">Pending</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. FOUR QUICK STAT METRICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* ATS Readiness */}
         <div className="p-5 rounded-2xl bg-[#0E131F] border border-[#253044] space-y-2 hover:border-teal-500/40 transition">
@@ -457,7 +615,7 @@ export default function CandidateProfileSection({
         <div className="p-5 rounded-2xl bg-[#0E131F] border border-[#253044] space-y-2 hover:border-blue-500/40 transition">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="font-bold uppercase tracking-wider">Active Applications</span>
-            <Kanban className="w-4 h-4 text-blue-400" />
+            <Layers className="w-4 h-4 text-blue-400" />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-black text-white font-mono">{activeAppsCount}</span>
@@ -470,7 +628,7 @@ export default function CandidateProfileSection({
             onClick={() => setActiveTab && setActiveTab('application-tracker')}
             className="text-[11px] text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1 pt-1"
           >
-            <span>Open Kanban Tracker</span>
+            <span>Open Application Tracker</span>
             <ArrowUpRight className="w-3 h-3" />
           </button>
         </div>
@@ -639,11 +797,11 @@ export default function CandidateProfileSection({
           </div>
         </div>
 
-        {/* PANEL C: APPLICATION LIFECYCLE MINI-KANBAN */}
+        {/* PANEL C: APPLICATION PIPELINE SNAPSHOT */}
         <div className="p-6 rounded-3xl bg-[#0E131F] border border-[#253044] space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Kanban className="w-4 h-4 text-blue-400" />
+              <Layers className="w-4 h-4 text-blue-400" />
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
                 Application Pipeline Snapshot
               </h3>
@@ -688,112 +846,193 @@ export default function CandidateProfileSection({
           </div>
         </div>
 
-        {/* PANEL D: VERIFIED IDENTITY & CREDENTIALS DOSSIER */}
+        {/* PANEL D: PROFILE VERIFICATION & CREDENTIALS (LINKEDIN, GITHUB, LEETCODE, GFG) */}
         <div className="p-6 rounded-3xl bg-[#0E131F] border border-[#253044] space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-teal-400" />
               <h3 className="text-sm font-black text-white uppercase tracking-wider">
-                Verification & Credentials
+                Profile Verification & Credentials
               </h3>
             </div>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              100% COMPLETE
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400 border border-teal-500/30">
+              4 REQUIRED PROFILES
             </span>
           </div>
 
           <p className="text-xs text-slate-400">
-            Verified credentials allow you to apply with instant trust badges on employer career boards.
+            Mandatory developer credentials. Link your verified coding and professional profiles to unlock recruiter outreach and instant trust badges.
           </p>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => handleToggleSignal('github')}
-              className={`p-3 rounded-2xl border text-left transition space-y-1 ${
-                trustSignals.github ? 'bg-[#141922] border-teal-500/40 hover:border-teal-400' : 'bg-[#141922]/60 border-[#253044] opacity-70 hover:opacity-100'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${trustSignals.github ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  <span>GitHub Profile</span>
-                </div>
-                <span className={`text-[10px] font-mono font-bold ${trustSignals.github ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  {trustSignals.github ? 'Active' : 'Off'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">Repo & Commit Provenance</p>
-              <span className="text-[10px] font-mono text-teal-400 font-bold block pt-1">
-                {trustSignals.github ? 'Verified (+10 pts)' : 'Tap to Verify'}
-              </span>
-            </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {[
+              {
+                key: 'linkedin',
+                label: 'LinkedIn Profile',
+                badgeText: 'Required',
+                domain: 'linkedin.com/in',
+                icon: <Linkedin className="w-4 h-4 text-[#0A66C2]" />,
+                color: 'text-[#0A66C2]',
+                borderHover: 'hover:border-[#0A66C2]/50',
+                placeholder: 'e.g. linkedin.com/in/alexmorgan or username',
+                url: profileCredentials.linkedin,
+                pts: '+12.5 pts'
+              },
+              {
+                key: 'github',
+                label: 'GitHub Profile',
+                badgeText: 'Required',
+                domain: 'github.com',
+                icon: <Github className="w-4 h-4 text-white" />,
+                color: 'text-white',
+                borderHover: 'hover:border-slate-400',
+                placeholder: 'e.g. github.com/alexmorgan or username',
+                url: profileCredentials.github,
+                pts: '+12.5 pts'
+              },
+              {
+                key: 'leetcode',
+                label: 'LeetCode Profile',
+                badgeText: 'Required',
+                domain: 'leetcode.com/u',
+                icon: <LeetCodeIcon className="w-4 h-4" />,
+                color: 'text-[#FFA116]',
+                borderHover: 'hover:border-[#FFA116]/50',
+                placeholder: 'e.g. leetcode.com/u/alexmorgan or username',
+                url: profileCredentials.leetcode,
+                pts: '+12.5 pts'
+              },
+              {
+                key: 'gfg',
+                label: 'GFG Profile',
+                badgeText: 'Required',
+                domain: 'geeksforgeeks.org/user',
+                icon: <GfgIcon className="w-4 h-4" />,
+                color: 'text-[#2F8D46]',
+                borderHover: 'hover:border-[#2F8D46]/50',
+                placeholder: 'e.g. geeksforgeeks.org/user/alexmorgan or username',
+                url: profileCredentials.gfg,
+                pts: '+12.5 pts'
+              }
+            ].map((cred) => {
+              const isEditing = editingCredKey === cred.key;
+              const hasUrl = Boolean(cred.url && cred.url.trim());
 
-            <button
-              type="button"
-              onClick={() => handleToggleSignal('identity')}
-              className={`p-3 rounded-2xl border text-left transition space-y-1 ${
-                trustSignals.identity ? 'bg-[#141922] border-teal-500/40 hover:border-teal-400' : 'bg-[#141922]/60 border-[#253044] opacity-70 hover:opacity-100'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${trustSignals.identity ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  <span>LinkedIn Profile</span>
-                </div>
-                <span className={`text-[10px] font-mono font-bold ${trustSignals.identity ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  {trustSignals.identity ? 'Active' : 'Off'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">Work Experience Authenticated</p>
-              <span className="text-[10px] font-mono text-teal-400 font-bold block pt-1">
-                {trustSignals.identity ? 'Verified (+10 pts)' : 'Tap to Verify'}
-              </span>
-            </button>
+              return (
+                <div
+                  key={cred.key}
+                  className={`p-3.5 rounded-2xl bg-[#141922] border transition space-y-2.5 ${
+                    hasUrl ? 'border-[#253044]' : 'border-amber-500/40 bg-amber-500/5'
+                  } ${cred.borderHover}`}
+                >
+                  {/* Top Bar: Icon + Label + Status Badge */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-[#0E131F] border border-[#253044]">
+                        {cred.icon}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">{cred.label}</span>
+                        <span className="text-[10px] font-mono text-slate-500">{cred.domain}</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                      {cred.badgeText}
+                    </span>
+                  </div>
 
-            <button
-              type="button"
-              onClick={() => handleToggleSignal('atsResume')}
-              className={`p-3 rounded-2xl border text-left transition space-y-1 ${
-                trustSignals.atsResume ? 'bg-[#141922] border-teal-500/40 hover:border-teal-400' : 'bg-[#141922]/60 border-[#253044] opacity-70 hover:opacity-100'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${trustSignals.atsResume ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  <span>ATS Resume Parsed</span>
-                </div>
-                <span className={`text-[10px] font-mono font-bold ${trustSignals.atsResume ? 'text-teal-400' : 'text-slate-500'}`}>
-                  {trustSignals.atsResume ? 'Active' : 'Off'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">Clean Standard Taxonomy</p>
-              <span className="text-[10px] font-mono text-teal-400 font-bold block pt-1">
-                {trustSignals.atsResume ? 'Optimized (+10 pts)' : 'Tap to Verify'}
-              </span>
-            </button>
+                  {/* Profile URL / Username Display OR Inline Edit Input */}
+                  {isEditing ? (
+                    <div className="space-y-2 pt-1 animate-fadeIn">
+                      <input
+                        type="text"
+                        value={credInputUrl}
+                        onChange={(e) => setCredInputUrl(e.target.value)}
+                        placeholder={cred.placeholder}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveCredential(cred.key);
+                          if (e.key === 'Escape') setEditingCredKey(null);
+                        }}
+                        autoFocus
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#0E131F] border border-teal-500/60 text-xs text-white placeholder-slate-500 focus:outline-none font-mono"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingCredKey(null)}
+                          className="px-2 py-1 rounded text-[11px] font-medium text-slate-400 hover:text-white transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveCredential(cred.key)}
+                          className="px-3 py-1 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 text-[11px] font-bold transition flex items-center gap-1 shadow-sm"
+                        >
+                          <Check className="w-3 h-3" />
+                          <span>Save</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between bg-[#0E131F] px-2.5 py-1.5 rounded-xl border border-[#253044]/80 text-[11px] font-mono">
+                        <span className="truncate max-w-[190px] text-slate-300" title={cred.url}>
+                          {cred.url ? cred.url.replace(/^https?:\/\//, '') : 'No link specified'}
+                        </span>
+                        <span className="text-[10px] font-bold text-teal-400 flex-shrink-0">
+                          {cred.pts}
+                        </span>
+                      </div>
 
-            <button
-              type="button"
-              onClick={() => handleToggleSignal('workEligibility')}
-              className={`p-3 rounded-2xl border text-left transition space-y-1 ${
-                trustSignals.workEligibility ? 'bg-[#141922] border-teal-500/40 hover:border-teal-400' : 'bg-[#141922]/60 border-[#253044] opacity-70 hover:opacity-100'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                  <CheckCircle2 className={`w-3.5 h-3.5 ${trustSignals.workEligibility ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  <span>Work Eligibility</span>
+                      {/* Interactive Controls: Visit Profile ↗, Copy Link, Edit Link */}
+                      <div className="flex items-center justify-between gap-1 pt-0.5">
+                        <div className="flex items-center gap-1">
+                          {hasUrl && (
+                            <a
+                              href={cred.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 rounded-lg bg-[#0E131F] hover:bg-teal-500/20 text-slate-300 hover:text-teal-300 border border-[#253044] hover:border-teal-500/40 text-[10px] font-bold inline-flex items-center gap-1 transition"
+                              title="Visit live profile link"
+                            >
+                              <span>Visit</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          )}
+                          {hasUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCredential(cred.key, cred.url)}
+                              className="p-1 rounded-lg bg-[#0E131F] hover:bg-slate-800 text-slate-400 hover:text-white border border-[#253044] transition"
+                              title="Copy profile link"
+                            >
+                              {copiedCredKey === cred.key ? (
+                                <CheckCheck className="w-3.5 h-3.5 text-teal-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCredKey(cred.key);
+                            setCredInputUrl(cred.url || '');
+                          }}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 transition inline-flex items-center gap-1"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>{hasUrl ? 'Edit Link' : 'Add Link'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <span className={`text-[10px] font-mono font-bold ${trustSignals.workEligibility ? 'text-emerald-400' : 'text-slate-500'}`}>
-                  {trustSignals.workEligibility ? 'Active' : 'Off'}
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">Direct Employer Authorization</p>
-              <span className="text-[10px] font-mono text-teal-400 font-bold block pt-1">
-                {trustSignals.workEligibility ? 'Cleared (+10 pts)' : 'Tap to Authorize'}
-              </span>
-            </button>
+              );
+            })}
           </div>
         </div>
 

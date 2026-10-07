@@ -36,6 +36,7 @@ public class AdminController {
     private final com.jobproof.service.JobService jobService;
     private final com.jobproof.ai.AIJobService aiJobService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.jobproof.verification.JobFreshnessAuditAgent auditAgent;
 
     public AdminController(JobRepository jobRepository,
                            CompanyRepository companyRepository,
@@ -48,7 +49,8 @@ public class AdminController {
                            com.jobproof.service.UserExperienceService userExperienceService,
                            com.jobproof.service.JobService jobService,
                            com.jobproof.ai.AIJobService aiJobService,
-                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+                           com.jobproof.verification.JobFreshnessAuditAgent auditAgent) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.jobMapper = jobMapper;
@@ -61,6 +63,7 @@ public class AdminController {
         this.jobService = jobService;
         this.aiJobService = aiJobService;
         this.passwordEncoder = passwordEncoder;
+        this.auditAgent = auditAgent;
     }
 
     @GetMapping("/stats")
@@ -257,6 +260,21 @@ public class AdminController {
             "message", "AI Discovery completed for source: " + source,
             "source", source,
             "stagedCount", stagedCount
+        ));
+    }
+
+    /**
+     * AI Freshness Audit: Scans active listings for employer closure and notifies employee queue
+     */
+    @PostMapping("/audit-freshness")
+    public ResponseEntity<Map<String, Object>> runFreshnessAudit() {
+        int flagged = auditAgent.auditActiveJobs();
+        long totalAudited = jobRepository.count();
+        return ResponseEntity.ok(Map.of(
+            "message", "AI Freshness Sentinel Audit Complete: Audited active listings. Flagged " + flagged + " potential closure(s). Notifications sent to employee queue.",
+            "totalAudited", totalAudited,
+            "closedCount", flagged,
+            "flaggedCount", flagged
         ));
     }
 

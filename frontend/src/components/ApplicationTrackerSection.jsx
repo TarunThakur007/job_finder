@@ -20,10 +20,12 @@ import {
   TrendingUp, 
   X, 
   MessageSquare,
-  Award
+  Award,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 
-const KANBAN_STAGES = [
+const PIPELINE_STAGES = [
   { id: 'SAVED', title: 'Saved & Preparing', icon: '📌', color: 'border-blue-500/40 text-blue-400 bg-blue-500/10' },
   { id: 'APPLIED', title: 'Applied', icon: '📨', color: 'border-yellow-500/40 text-yellow-400 bg-yellow-500/10' },
   { id: 'REVIEWING', title: 'Under Review', icon: '🔍', color: 'border-yellow-500/30 text-yellow-400 bg-yellow-400/15' },
@@ -117,6 +119,8 @@ export default function ApplicationTrackerSection({
   });
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('board'); // 'board' | 'list'
+  const [stageFilter, setStageFilter] = useState('ALL');
   const [draggedAppId, setDraggedAppId] = useState(null);
   const [selectedAppForDetail, setSelectedAppForDetail] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -175,7 +179,7 @@ export default function ApplicationTrackerSection({
 
   // Stage Transitions
   const handleMoveStage = (appId, direction) => {
-    const stageIds = KANBAN_STAGES.map((s) => s.id);
+    const stageIds = PIPELINE_STAGES.map((s) => s.id);
     setApplications((prev) =>
       prev.map((app) => {
         if (app.id !== appId) return app;
@@ -205,6 +209,25 @@ export default function ApplicationTrackerSection({
       if (nextIdx >= 0 && nextIdx < stageIds.length) {
         setSelectedAppForDetail((prev) => ({ ...prev, status: stageIds[nextIdx] }));
       }
+    }
+  };
+
+  const handleSetDirectStatus = (appId, newStatus) => {
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (app.id !== appId) return app;
+        if (typeof app.id === 'number' && app.id < 1000) {
+          fetch(`/api/applications/${app.id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus, notes: app.notes || '' })
+          }).catch(() => {});
+        }
+        return { ...app, status: newStatus };
+      })
+    );
+    if (selectedAppForDetail && selectedAppForDetail.id === appId) {
+      setSelectedAppForDetail((prev) => ({ ...prev, status: newStatus }));
     }
   };
 
@@ -282,7 +305,7 @@ export default function ApplicationTrackerSection({
       salary: newAppForm.salary || '$140,000 - $190,000 / yr',
       atsMatchScore: parseInt(newAppForm.atsMatchScore) || 94,
       appliedAt: 'Today',
-      notes: newAppForm.notes.trim() || 'Tracked via JobProof Candidate Cockpit.',
+      notes: newAppForm.notes.trim() || 'Tracked via JobProof Application Tracker.',
       applyUrl: newAppForm.applyUrl.trim()
     };
 
@@ -311,7 +334,7 @@ export default function ApplicationTrackerSection({
     );
   });
 
-  // Cockpit Analytics
+  // Pipeline Analytics
   const totalTracked = applications.length;
   const interviewingCount = applications.filter((a) => a.status === 'INTERVIEWING').length;
   const offersCount = applications.filter((a) => a.status === 'ACCEPTED').length;
@@ -321,17 +344,17 @@ export default function ApplicationTrackerSection({
   return (
     <div className="space-y-8 animate-fadeIn">
       
-      {/* Cockpit Executive Analytics Banner */}
+      {/* Executive Analytics Banner */}
       <div className="bg-[#222228] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-yellow-500/30 relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-              <span>JobProof Candidate Cockpit</span>
+              <span>JobProof Application Tracker</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Application <span className="text-yellow-400">Kanban Tracker</span>
+              Application <span className="text-yellow-400">Tracker</span>
             </h1>
             <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">
               Organize your interviews, track company pipeline progression from Applied to Offer, record notes, and monitor your career conversion velocity in one unified dashboard.
@@ -360,7 +383,7 @@ export default function ApplicationTrackerSection({
         </div>
       </div>
 
-      {/* Action Toolbar */}
+      {/* Action Toolbar & View Mode Switcher */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         {/* Search Field */}
         <div className="relative flex-1 max-w-md">
@@ -374,8 +397,36 @@ export default function ApplicationTrackerSection({
           />
         </div>
 
-        {/* Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Buttons & View Toggle */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center bg-[#18181c] p-1 rounded-2xl border border-gray-800">
+            <button
+              type="button"
+              onClick={() => setViewMode('board')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                viewMode === 'board'
+                  ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Pipeline Board</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                viewMode === 'list'
+                  ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>List View</span>
+            </button>
+          </div>
+
           <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-gray-400 bg-[#222228] px-3.5 py-2.5 rounded-2xl border border-gray-800">
             <TrendingUp className="w-4 h-4 text-yellow-400" />
             <span>Interview Conversion: <strong className="text-white">{conversionRate}%</strong></span>
@@ -391,135 +442,305 @@ export default function ApplicationTrackerSection({
         </div>
       </div>
 
-      {/* 5-STAGE KANBAN BOARD */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start overflow-x-auto pb-4">
-        {KANBAN_STAGES.map((stage) => {
-          const stageApps = filteredApps.filter((a) => a.status === stage.id);
+      {/* VIEW MODE 1: PIPELINE STAGE BOARD */}
+      {viewMode === 'board' ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-start overflow-x-auto pb-4">
+          {PIPELINE_STAGES.map((stage) => {
+            const stageApps = filteredApps.filter((a) => a.status === stage.id);
 
-          return (
-            <div
-              key={stage.id}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDropOnStage(e, stage.id)}
-              className="bg-[#222228]/80 border border-gray-800/80 rounded-3xl p-4 flex flex-col min-h-[550px] shadow-xl space-y-3.5 transition-colors"
-            >
-              {/* Stage Column Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">{stage.icon}</span>
-                  <h3 className="text-xs font-extrabold text-white tracking-wide">
-                    {stage.title}
-                  </h3>
+            return (
+              <div
+                key={stage.id}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDropOnStage(e, stage.id)}
+                className="bg-[#222228]/80 border border-gray-800/80 rounded-3xl p-4 flex flex-col min-h-[550px] shadow-xl space-y-3.5 transition-colors"
+              >
+                {/* Stage Column Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-gray-800/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">{stage.icon}</span>
+                    <h3 className="text-xs font-extrabold text-white tracking-wide">
+                      {stage.title}
+                    </h3>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-black border ${stage.color}`}>
+                    {stageApps.length}
+                  </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-[11px] font-black border ${stage.color}`}>
-                  {stageApps.length}
-                </span>
-              </div>
 
-              {/* Application Cards List */}
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
-                {stageApps.map((app) => (
-                  <div
-                    key={app.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, app.id)}
-                    onClick={() => setSelectedAppForDetail(app)}
-                    className="p-4 rounded-2xl bg-[#18181c] border border-gray-800 hover:border-yellow-500/50 cursor-pointer transition-all duration-200 space-y-3 shadow-md hover:shadow-yellow-500/5 group"
-                  >
-                    {/* Top Row: Company & ATS score */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-yellow-400" />
-                          {app.companyName}
-                        </p>
-                        <h4 className="text-xs font-black text-white group-hover:text-yellow-400 transition-colors line-clamp-1 mt-0.5">
-                          {app.jobTitle}
-                        </h4>
+                {/* Application Cards List */}
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[680px] pr-1">
+                  {stageApps.map((app) => (
+                    <div
+                      key={app.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, app.id)}
+                      onClick={() => setSelectedAppForDetail(app)}
+                      className="p-4 rounded-2xl bg-[#18181c] border border-gray-800 hover:border-yellow-500/50 cursor-pointer transition-all duration-200 space-y-3 shadow-md hover:shadow-yellow-500/5 group"
+                    >
+                      {/* Top Row: Company & ATS score */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                            <Building2 className="w-3 h-3 text-yellow-400" />
+                            {app.companyName}
+                          </p>
+                          <h4 className="text-xs font-black text-white group-hover:text-yellow-400 transition-colors line-clamp-1 mt-0.5">
+                            {app.jobTitle}
+                          </h4>
+                        </div>
+
+                        {app.atsMatchScore && (
+                          <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black flex-shrink-0">
+                            {app.atsMatchScore}% ATS
+                          </span>
+                        )}
                       </div>
 
+                      {/* Metadata chips */}
+                      <div className="space-y-1 text-[11px] text-gray-400">
+                        <p className="flex items-center gap-1.5 truncate">
+                          <MapPin className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                          <span className="truncate">{app.jobLocation}</span>
+                        </p>
+                        <p className="flex items-center gap-1.5 font-bold text-gray-300">
+                          <DollarSign className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+                          <span>{app.salary || '$150k / yr'}</span>
+                        </p>
+                      </div>
+
+                      {/* Quick Note preview */}
+                      {app.notes && (
+                        <p className="text-[10px] text-gray-400 line-clamp-2 bg-[#222228] p-2 rounded-xl border border-gray-800/80 italic">
+                          "{app.notes}"
+                        </p>
+                      )}
+
+                      {/* Card Footer: Stage controls & delete */}
+                      <div 
+                        onClick={(e) => e.stopPropagation()} 
+                        className="pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]"
+                      >
+                        <div className="flex items-center gap-1">
+                          {stage.id !== 'SAVED' && (
+                            <button
+                              onClick={() => handleMoveStage(app.id, 'prev')}
+                              title="Move to previous stage"
+                              className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                            >
+                              <ArrowLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {stage.id !== 'ACCEPTED' && (
+                            <button
+                              onClick={() => handleMoveStage(app.id, 'next')}
+                              title="Advance to next stage"
+                              className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-yellow-400 transition"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {app.applyUrl && (
+                            <a
+                              href={app.applyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open original apply URL"
+                              className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-yellow-400 transition"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => setSelectedAppForDetail(app)}
+                            title="Edit details & notes"
+                            className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteApplication(app.id)}
+                            title="Remove application"
+                            className="p-1 rounded-lg hover:bg-rose-950/40 text-gray-500 hover:text-rose-400 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {stageApps.length === 0 && (
+                    <div className="py-12 px-3 text-center border-2 border-dashed border-gray-800 rounded-2xl text-gray-600 text-[11px] font-medium">
+                      Drag applications here or advance from previous stage
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* VIEW MODE 2: APPLICATION PIPELINE LIST VIEW */
+        <div className="space-y-4">
+          {/* Stage Filter Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setStageFilter('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+                stageFilter === 'ALL'
+                  ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                  : 'bg-[#18181c] text-gray-400 border border-gray-800 hover:text-white'
+              }`}
+            >
+              <span>All Applications</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/20">
+                {filteredApps.length}
+              </span>
+            </button>
+            {PIPELINE_STAGES.map((s) => {
+              const count = applications.filter((a) => a.status === s.id).length;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setStageFilter(s.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+                    stageFilter === s.id
+                      ? 'bg-yellow-400 text-gray-950 shadow-md font-black'
+                      : 'bg-[#18181c] text-gray-400 border border-gray-800 hover:text-white'
+                  }`}
+                >
+                  <span>{s.icon} {s.title}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/20">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* List Cards */}
+          <div className="space-y-3">
+            {filteredApps
+              .filter((a) => stageFilter === 'ALL' || a.status === stageFilter)
+              .map((app) => {
+                const currentStage = PIPELINE_STAGES.find((s) => s.id === app.status);
+                return (
+                  <div
+                    key={app.id}
+                    className="p-4 sm:p-5 rounded-2xl bg-[#222228] border border-gray-800 hover:border-yellow-500/40 transition shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="w-11 h-11 rounded-2xl bg-[#18181c] border border-gray-800 text-yellow-400 flex items-center justify-center font-black text-base flex-shrink-0 group-hover:border-yellow-500/40 transition">
+                        {app.companyName.charAt(0)}
+                      </div>
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-black text-white group-hover:text-yellow-400 transition">
+                            {app.jobTitle}
+                          </h4>
+                          <span className="text-xs font-bold text-gray-400">
+                            • {app.companyName}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-gray-500" />
+                            {app.jobLocation}
+                          </span>
+                          <span className="flex items-center gap-1 font-bold text-gray-300">
+                            <DollarSign className="w-3.5 h-3.5 text-yellow-400" />
+                            {app.salary || '$150k / yr'}
+                          </span>
+                          {app.appliedAt && (
+                            <span className="flex items-center gap-1 text-[11px] text-gray-500">
+                              <Calendar className="w-3 h-3" />
+                              {app.appliedAt}
+                            </span>
+                          )}
+                        </div>
+                        {app.notes && (
+                          <p className="text-xs text-gray-400 italic line-clamp-1 pt-0.5">
+                            "{app.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 self-end md:self-center">
                       {app.atsMatchScore && (
-                        <span className="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black flex-shrink-0">
+                        <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono">
                           {app.atsMatchScore}% ATS
                         </span>
                       )}
-                    </div>
 
-                    {/* Metadata chips */}
-                    <div className="space-y-1 text-[11px] text-gray-400">
-                      <p className="flex items-center gap-1.5 truncate">
-                        <MapPin className="w-3 h-3 text-gray-500 flex-shrink-0" />
-                        <span className="truncate">{app.jobLocation}</span>
-                      </p>
-                      <p className="flex items-center gap-1.5 font-bold text-gray-300">
-                        <DollarSign className="w-3 h-3 text-yellow-400 flex-shrink-0" />
-                        <span>{app.salary || '$150k / yr'}</span>
-                      </p>
-                    </div>
+                      {/* Direct Stage Select Dropdown */}
+                      <select
+                        value={app.status}
+                        onChange={(e) => handleSetDirectStatus(app.id, e.target.value)}
+                        className={`text-xs font-bold rounded-xl px-3 py-1.5 border bg-[#18181c] cursor-pointer focus:outline-none focus:border-yellow-400 transition ${
+                          currentStage?.color || 'text-white border-gray-700'
+                        }`}
+                      >
+                        {PIPELINE_STAGES.map((s) => (
+                          <option key={s.id} value={s.id} className="bg-[#18181c] text-white">
+                            {s.icon} {s.title}
+                          </option>
+                        ))}
+                      </select>
 
-                    {/* Quick Note preview */}
-                    {app.notes && (
-                      <p className="text-[10px] text-gray-400 line-clamp-2 bg-[#222228] p-2 rounded-xl border border-gray-800/80 italic">
-                        "{app.notes}"
-                      </p>
-                    )}
-
-                    {/* Card Footer: Stage controls & delete */}
-                    <div 
-                      onClick={(e) => e.stopPropagation()} 
-                      className="pt-2 border-t border-gray-800/80 flex items-center justify-between text-[11px]"
-                    >
+                      {/* Action buttons */}
                       <div className="flex items-center gap-1">
-                        {stage.id !== 'SAVED' && (
-                          <button
-                            onClick={() => handleMoveStage(app.id, 'prev')}
-                            title="Move to previous stage"
-                            className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                        {app.applyUrl && (
+                          <a
+                            href={app.applyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Visit apply URL"
+                            className="p-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-gray-400 hover:text-yellow-400 border border-gray-800 transition"
                           >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                          </button>
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
                         )}
-                        {stage.id !== 'ACCEPTED' && (
-                          <button
-                            onClick={() => handleMoveStage(app.id, 'next')}
-                            title="Advance to next stage"
-                            className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-yellow-400 transition"
-                          >
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1">
                         <button
+                          type="button"
                           onClick={() => setSelectedAppForDetail(app)}
                           title="Edit details & notes"
-                          className="p-1 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition"
+                          className="p-2 rounded-xl bg-[#18181c] hover:bg-gray-800 text-gray-400 hover:text-white border border-gray-800 transition"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleDeleteApplication(app.id)}
                           title="Remove application"
-                          className="p-1 rounded-lg hover:bg-rose-950/40 text-gray-500 hover:text-rose-400 transition"
+                          className="p-2 rounded-xl bg-[#18181c] hover:bg-rose-950/40 text-gray-500 hover:text-rose-400 border border-gray-800 transition"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+              })}
 
-                {stageApps.length === 0 && (
-                  <div className="py-12 px-3 text-center border-2 border-dashed border-gray-800 rounded-2xl text-gray-600 text-[11px] font-medium">
-                    Drag applications here or advance from previous stage
-                  </div>
-                )}
+            {filteredApps.filter((a) => stageFilter === 'ALL' || a.status === stageFilter).length === 0 && (
+              <div className="py-16 text-center border-2 border-dashed border-gray-800 rounded-3xl text-gray-500 text-xs font-medium space-y-2">
+                <p>No applications match the current filter or search criteria.</p>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 rounded-xl bg-yellow-400/10 text-yellow-400 border border-yellow-500/30 text-xs font-bold hover:bg-yellow-400 hover:text-gray-950 transition"
+                >
+                  Track an Application Now
+                </button>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* APPLICATION DETAIL & NOTES MODAL */}
       {selectedAppForDetail && (
@@ -554,7 +775,7 @@ export default function ApplicationTrackerSection({
               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Current Pipeline Stage</p>
               <div className="flex items-center justify-between gap-3">
                 <span className="px-3.5 py-1.5 rounded-xl bg-yellow-400/10 border border-yellow-500/40 text-yellow-400 font-extrabold text-xs">
-                  {KANBAN_STAGES.find((s) => s.id === selectedAppForDetail.status)?.title || selectedAppForDetail.status}
+                  {PIPELINE_STAGES.find((s) => s.id === selectedAppForDetail.status)?.title || selectedAppForDetail.status}
                 </span>
 
                 <div className="flex items-center gap-2">
@@ -643,7 +864,7 @@ export default function ApplicationTrackerSection({
                   Track New Job Application
                 </h3>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Add external applications (LinkedIn, direct site, etc.) to your cockpit.
+                  Add external applications (LinkedIn, direct site, etc.) to your application tracker.
                 </p>
               </div>
               <button
@@ -698,7 +919,7 @@ export default function ApplicationTrackerSection({
                     onChange={(e) => setNewAppForm({ ...newAppForm, status: e.target.value })}
                     className="w-full bg-[#18181c] border border-gray-800 rounded-xl px-4 py-2.5 text-white focus:border-yellow-400 focus:outline-none cursor-pointer"
                   >
-                    {KANBAN_STAGES.map((s) => (
+                    {PIPELINE_STAGES.map((s) => (
                       <option key={s.id} value={s.id}>{s.icon} {s.title}</option>
                     ))}
                   </select>
@@ -751,7 +972,7 @@ export default function ApplicationTrackerSection({
                   type="submit"
                   className="px-6 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-black shadow-lg shadow-yellow-500/20 transition"
                 >
-                  Add to Kanban
+                  Track Application
                 </button>
               </div>
             </form>
