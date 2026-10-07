@@ -237,6 +237,12 @@ public class JobService {
         job.setLastVerified(java.time.LocalDateTime.now());
         job.setSummary("Closed: Hiring stopped by employer on " + java.time.LocalDateTime.now());
         job = jobRepository.save(job);
+
+        // Automatically delete notifications associated with this job when removed/closed by employee
+        try {
+            notificationRepository.deleteByJobId(id);
+        } catch (Exception ignored) {}
+
         return jobMapper.toJobDTO(job);
     }
 
@@ -253,6 +259,19 @@ public class JobService {
         return uniqueClosed.values().stream()
                 .map(jobMapper::toJobDTO)
                 .collect(Collectors.toList());
+    }
+
+    @CacheEvict(value = "jobs", allEntries = true)
+    @Transactional
+    public int removeAllClosedJobs() {
+        List<Job> closedJobs = jobRepository.findAll().stream()
+                .filter(j -> j.getVerificationStatus() == Job.VerificationStatus.CLOSED)
+                .collect(Collectors.toList());
+        int count = closedJobs.size();
+        for (Job job : closedJobs) {
+            deleteJobPermanently(job.getId());
+        }
+        return count;
     }
 
     @CacheEvict(value = "jobs", allEntries = true)

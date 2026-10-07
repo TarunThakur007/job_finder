@@ -35,6 +35,7 @@ public class AdminController {
     private final com.jobproof.service.UserExperienceService userExperienceService;
     private final com.jobproof.service.JobService jobService;
     private final com.jobproof.ai.AIJobService aiJobService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public AdminController(JobRepository jobRepository,
                            CompanyRepository companyRepository,
@@ -46,7 +47,8 @@ public class AdminController {
                            com.jobproof.service.ResumeAnalysisService resumeAnalysisService,
                            com.jobproof.service.UserExperienceService userExperienceService,
                            com.jobproof.service.JobService jobService,
-                           com.jobproof.ai.AIJobService aiJobService) {
+                           com.jobproof.ai.AIJobService aiJobService,
+                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.jobRepository = jobRepository;
         this.companyRepository = companyRepository;
         this.jobMapper = jobMapper;
@@ -58,6 +60,7 @@ public class AdminController {
         this.userExperienceService = userExperienceService;
         this.jobService = jobService;
         this.aiJobService = aiJobService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @GetMapping("/stats")
@@ -413,7 +416,9 @@ public class AdminController {
                 .orElse(new com.jobproof.entity.User());
         user.setName(req.getName() != null && !req.getName().isBlank() ? req.getName() : "Team Member");
         user.setEmail(req.getEmail().trim().toLowerCase());
-        user.setPassword(req.getPassword() != null && !req.getPassword().isBlank() ? req.getPassword() : "$2a$10$defaultEncryptedPassword");
+        String rawPass = req.getPassword() != null && !req.getPassword().isBlank() ? req.getPassword() : "Default@123";
+        String encodedPass = (rawPass.startsWith("$2a$") || rawPass.startsWith("$2b$")) ? rawPass : passwordEncoder.encode(rawPass);
+        user.setPassword(encodedPass);
         user.setRole(roleEnum);
         if (user.getCreatedAt() == null) {
             user.setCreatedAt(LocalDateTime.now());
@@ -447,7 +452,9 @@ public class AdminController {
                     .orElse(new com.jobproof.entity.User());
             user.setName(req.getName() != null && !req.getName().isBlank() ? req.getName() : "Team Member");
             user.setEmail(req.getEmail().trim().toLowerCase());
-            user.setPassword(req.getPassword() != null && !req.getPassword().isBlank() ? req.getPassword() : "$2a$10$defaultEncryptedPassword");
+            String rawP = req.getPassword() != null && !req.getPassword().isBlank() ? req.getPassword() : "Default@123";
+            String encP = (rawP.startsWith("$2a$") || rawP.startsWith("$2b$")) ? rawP : passwordEncoder.encode(rawP);
+            user.setPassword(encP);
             user.setRole(roleEnum);
             if (user.getCreatedAt() == null) {
                 user.setCreatedAt(LocalDateTime.now());

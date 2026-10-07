@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # 1. PostgreSQL Database Service
+  # ==========================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: jobproof-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jobproof}
+      POSTGRES_USER: ${POSTGRES_USER:-jobproof_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-JobProofSecret123!}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobproof_admin} -d ${POSTGRES_DB:-jobproof}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 2. Spring Boot 3 Backend API
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jobproof-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-jobproof}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-jobproof_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-JobProofSecret123!}
+      SPRING_DATASOURCE_DRIVER: org.postgresql.Driver
+      SPRING_JPA_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_JPA_DDL_AUTO: update
+      JWT_SECRET: ${JWT_SECRET:-jobproof_super_secret_jwt_key_production_32bytes_min!}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
+      USAJOBS_API_KEY: ${USAJOBS_API_KEY:-}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================
+  # 3. React Vite Frontend UI
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jobproof-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "5173:80"
+
+volumes:
+  postgres_data:
+    driver: local

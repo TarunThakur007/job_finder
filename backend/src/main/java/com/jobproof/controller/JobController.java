@@ -35,6 +35,15 @@ public class JobController {
         return ResponseEntity.ok(jobService.getClosedJobs());
     }
 
+    @DeleteMapping("/closed/all")
+    public ResponseEntity<?> removeAllClosedJobs() {
+        int removedCount = jobService.removeAllClosedJobs();
+        return ResponseEntity.ok(java.util.Map.of(
+            "message", "Successfully removed all closed jobs",
+            "removedCount", removedCount
+        ));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<JobDTO> getJobById(@PathVariable Long id) {
         return ResponseEntity.ok(jobService.getJobById(id));

@@ -121,9 +121,17 @@ export default function EmployeeControlSection({
         const updated = await res.json().catch(() => ({ ...job, verificationStatus: 'CLOSED', isClosed: true }));
         setClosedJobs(prev => [updated, ...prev.filter(j => j.id !== job.id)]);
         if (onCloseJob) onCloseJob(job.id);
+
+        // AUTOMATICALLY DELETE NOTIFICATION FOR THIS JOB FROM WEBSITE
+        setNotifications(prev => prev.filter(n => n.jobId !== job.id));
+        setUnreadNotificationsCount(prev => {
+          const hadUnread = notifications.some(n => n.jobId === job.id && !n.isRead);
+          return hadUnread ? Math.max(0, prev - 1) : prev;
+        });
+
         setActionNotice({
           type: 'success',
-          msg: `Job Closed: "${job.title}" has been unlisted from the User page and moved to the Closed Jobs tab.`,
+          msg: `Job Closed: "${job.title}" has been unlisted from the User page and its notification cleared.`,
           actionLabel: 'View Closed Jobs',
           onAction: () => setEmployeeTab('closed')
         });
@@ -150,10 +158,17 @@ export default function EmployeeControlSection({
       setClosedJobs(prev => prev.filter(j => j.id !== job.id));
       setPendingJobs(prev => prev.filter(j => j.id !== job.id));
       if (onDeleteJob) onDeleteJob(job.id);
+
+      // AUTOMATICALLY DELETE NOTIFICATION FOR THIS JOB FROM WEBSITE
       setNotifications(prev => prev.filter(n => n.jobId !== job.id));
+      setUnreadNotificationsCount(prev => {
+        const hadUnread = notifications.some(n => n.jobId === job.id && !n.isRead);
+        return hadUnread ? Math.max(0, prev - 1) : prev;
+      });
+
       setActionNotice({
         type: 'success',
-        msg: `Job Permanently Deleted: "${job.title}" has been removed and blacklisted from crawler re-ingestion.`
+        msg: `Job Permanently Deleted: "${job.title}" and its notifications have been completely purged from the website.`
       });
     } catch (e) {
       console.error('Error deleting live job:', e);
@@ -163,6 +178,37 @@ export default function EmployeeControlSection({
         next.delete(job.id);
         return next;
       });
+    }
+  };
+
+  const handleRemoveAllClosedJobs = async () => {
+    if (filteredClosedJobs.length === 0) return;
+    if (!window.confirm(`Are you sure you want to permanently remove and purge all (${filteredClosedJobs.length}) closed jobs? This will permanently delete them from the database and remove any corresponding notifications.`)) {
+      return;
+    }
+
+    const closedIds = new Set(filteredClosedJobs.map(j => j.id));
+    try {
+      // Optimistically clear closed jobs and their notifications
+      setClosedJobs(prev => prev.filter(j => !closedIds.has(j.id)));
+      setNotifications(prev => prev.filter(n => !closedIds.has(n.jobId)));
+      setUnreadNotificationsCount(prev => {
+        const removedUnread = notifications.filter(n => closedIds.has(n.jobId) && !n.isRead).length;
+        return Math.max(0, prev - removedUnread);
+      });
+
+      const res = await fetch('/api/jobs/closed/all', { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setActionNotice({
+          type: 'success',
+          msg: `Purged: Successfully removed all closed jobs (${data.removedCount || filteredClosedJobs.length} records) and cleared corresponding notifications.`
+        });
+      }
+    } catch (e) {
+      console.error('Error removing all closed jobs:', e);
+    } finally {
+      setTimeout(() => setActionNotice(null), 4000);
     }
   };
 
@@ -1311,10 +1357,21 @@ export default function EmployeeControlSection({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-mono text-xs font-bold">
                 {filteredClosedJobs.length} Closed Positions
               </span>
+              {filteredClosedJobs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAllClosedJobs}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-600/20 active:scale-95"
+                  title="Permanently remove all closed jobs from database and clear all related notifications"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove All Closed Jobs</span>
+                </button>
+              )}
             </div>
           </div>
 

@@ -7,14 +7,15 @@ import com.jobproof.entity.User;
 import com.jobproof.entity.UserLoginLog;
 import com.jobproof.repository.UserLoginLogRepository;
 import com.jobproof.repository.UserRepository;
+import com.jobproof.security.JwtService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -23,10 +24,17 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final UserLoginLogRepository userLoginLogRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, UserLoginLogRepository userLoginLogRepository) {
+    public AuthService(UserRepository userRepository,
+                       UserLoginLogRepository userLoginLogRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService) {
         this.userRepository = userRepository;
         this.userLoginLogRepository = userLoginLogRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -45,10 +53,13 @@ public class AuthService {
 
         String name = (req.getName() != null && !req.getName().isBlank()) ? req.getName().trim() : cleanEmail.split("@")[0];
 
+        // BCrypt hash password
+        String hashedPassword = passwordEncoder.encode(req.getPassword());
+
         User user = User.builder()
                 .name(name)
                 .email(cleanEmail)
-                .password(req.getPassword()) // In production, hash with BCrypt
+                .password(hashedPassword)
                 .role(User.Role.ROLE_USER)
                 .lastLoginAt(LocalDateTime.now())
                 .build();
@@ -80,10 +91,11 @@ public class AuthService {
             // Auto-provision master administrator or recruiter if not yet in database
             if ("admin@jobproof.io".equals(cleanEmail) || "alex.vance@jobproof.io".equals(cleanEmail)) {
                 log.info("[AuthService] Auto-provisioning master Platform Administrator {}...", cleanEmail);
+                String adminPass = req.getPassword() != null ? req.getPassword() : "Admin@123";
                 user = userRepository.save(User.builder()
                         .name("Platform Admin Author")
                         .email(cleanEmail)
-                        .password(req.getPassword() != null ? req.getPassword() : "Admin@123")
+                        .password(passwordEncoder.encode(adminPass))
                         .role(User.Role.ROLE_ADMIN)
                         .headline("Chief Platform Administrator")
                         .company("JobProof Core")
@@ -91,10 +103,11 @@ public class AuthService {
                         .build());
             } else if ("employee@jobproof.io".equals(cleanEmail) || "sarah.jenkins@google.com".equals(cleanEmail)) {
                 log.info("[AuthService] Auto-provisioning Recruiter {}...", cleanEmail);
+                String empPass = req.getPassword() != null ? req.getPassword() : "Employee@123";
                 user = userRepository.save(User.builder()
                         .name("Sarah Jenkins")
                         .email(cleanEmail)
-                        .password(req.getPassword() != null ? req.getPassword() : "Employee@123")
+                        .password(passwordEncoder.encode(empPass))
                         .role(User.Role.ROLE_EMPLOYEE)
                         .headline("Company Recruiter & Hiring Partner")
                         .company("Google")
@@ -114,9 +127,18 @@ public class AuthService {
             }
         }
 
-        // Validate password
-        boolean passwordMatches = req.getPassword() != null && 
-                (user.getPassword().equals(req.getPassword()) || user.getPassword().startsWith("$2a$")); // allow demo bypass or match
+        // Validate password with BCrypt (with graceful upgrade for legacy records)
+        boolean passwordMatches = false;
+        if (req.getPassword() != null && user.getPassword() != null) {
+            if (user.getPassword().startsWith("$2a$") || user.getPassword().startsWith("$2b$") || user.getPassword().startsWith("$2y$")) {
+                passwordMatches = passwordEncoder.matches(req.getPassword(), user.getPassword());
+            } else if (user.getPassword().equals(req.getPassword())) {
+                passwordMatches = true;
+                // Upgrade plaintext password to BCrypt hash in DB
+                user.setPassword(passwordEncoder.encode(req.getPassword()));
+                userRepository.save(user);
+            }
+        }
 
         if (!passwordMatches) {
             userLoginLogRepository.save(UserLoginLog.builder()
@@ -162,7 +184,8 @@ public class AuthService {
     }
 
     private AuthResponse createAuthResponse(User user) {
-        String token = "jwt-" + UUID.randomUUID().toString();
+        String role = user.getRole() != null ? user.getRole().name() : "ROLE_USER";
+        String token = jwtService.generateToken(user.getEmail(), role);
         UserDTO userDTO = mapToDTO(user);
         return AuthResponse.builder()
                 .token(token)

@@ -186,6 +186,16 @@ export default function Header({
                 >
                   Experiences
                 </button>
+                <button
+                  onClick={() => setActiveTab('candidate-profile')}
+                  className={`text-xs transition-all pb-1 ${
+                    activeTab === 'candidate-profile'
+                      ? 'text-teal-400 font-semibold border-b-2 border-teal-400'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Profile Cockpit
+                </button>
               </>
             )}
           </nav>

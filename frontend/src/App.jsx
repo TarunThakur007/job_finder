@@ -18,6 +18,7 @@ const ApplyJobModal = lazy(() => import('./components/ApplyJobModal'));
 const ExperienceBoardSection = lazy(() => import('./components/ExperienceBoardSection'));
 const ShareExperienceModal = lazy(() => import('./components/ShareExperienceModal'));
 const ApplicationTrackerSection = lazy(() => import('./components/ApplicationTrackerSection'));
+const CandidateProfileSection = lazy(() => import('./components/CandidateProfileSection'));
 import { 
   ShieldCheck, 
   CheckCircle2, 
@@ -856,6 +857,15 @@ export default function App() {
             onDeleteJob={handleEmployeeDeleteJob}
           />
         </div>
+      ) : activeTab === 'candidate-profile' ? (
+        <Suspense fallback={<SectionLoader label="Loading Candidate Command Center..." />}>
+          <CandidateProfileSection 
+            currentUser={currentUser}
+            onUpdateUser={(updated) => setCurrentUser(updated)}
+            setActiveTab={setActiveTab}
+            onRequireRegistration={handleRequireRegistration}
+          />
+        </Suspense>
       ) : activeTab === 'resume-analyzer' ? (
         <div className="max-w-7xl mx-auto py-8 px-4">
           <ResumeAnalyzerSection 
