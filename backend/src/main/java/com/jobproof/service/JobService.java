@@ -7,7 +7,6 @@ import com.jobproof.entity.Job;
 import com.jobproof.mapper.JobMapper;
 import com.jobproof.repository.JobRepository;
 import com.jobproof.verification.VerificationService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;

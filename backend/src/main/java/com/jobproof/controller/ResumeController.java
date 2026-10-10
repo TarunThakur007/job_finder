@@ -21,15 +21,36 @@ public class ResumeController {
     private final ResumeAnalysisService resumeAnalysisService;
     private final com.jobproof.service.JobApplicationService jobApplicationService;
     private final com.jobproof.repository.JobRepository jobRepository;
+    private final com.jobproof.service.ResumeMatcherService resumeMatcherService;
 
     public ResumeController(GeminiClientService geminiClientService,
                             ResumeAnalysisService resumeAnalysisService,
                             com.jobproof.service.JobApplicationService jobApplicationService,
-                            com.jobproof.repository.JobRepository jobRepository) {
+                            com.jobproof.repository.JobRepository jobRepository,
+                            com.jobproof.service.ResumeMatcherService resumeMatcherService) {
         this.geminiClientService = geminiClientService;
         this.resumeAnalysisService = resumeAnalysisService;
         this.jobApplicationService = jobApplicationService;
         this.jobRepository = jobRepository;
+        this.resumeMatcherService = resumeMatcherService;
+    }
+
+    @PostMapping("/matched-jobs")
+    public ResponseEntity<com.jobproof.dto.ResumeMatchResultDTO> getMatchedJobsForResume(@RequestBody java.util.Map<String, Object> payload) {
+        List<String> skills = null;
+        if (payload.get("resumeSkills") instanceof List<?> list) {
+            skills = list.stream().map(Object::toString).toList();
+        }
+        String role = (String) payload.getOrDefault("targetJobRole", "Software Engineer");
+        String location = (String) payload.getOrDefault("userLocation", "Bengaluru, India");
+        String rawText = (String) payload.get("rawResumeText");
+
+        if ((skills == null || skills.isEmpty()) && rawText != null && !rawText.isBlank()) {
+            skills = resumeMatcherService.extractSkillsFromResume(rawText);
+        }
+
+        com.jobproof.dto.ResumeMatchResultDTO result = resumeMatcherService.matchResumeToActiveJobs(skills, role, location);
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/analyze")

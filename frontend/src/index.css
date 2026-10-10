@@ -320,31 +320,201 @@ html.light,
   color: #94a3b8 !important;
 }
 
-/* Obsidian + Electric Teal Theme Overrides for Dark Mode */
-:root:not([data-theme='light']) .bg-\[\#0f0f12\],
+/* Dark Mode Direct Color Consistency */
+:root[data-theme='dark'] .bg-\[\#0f0f12\],
+html.dark .bg-\[\#0f0f12\],
 .dark .bg-\[\#0f0f12\] {
   background-color: #090B0F !important;
 }
 
-:root:not([data-theme='light']) .bg-\[\#18181c\],
+:root[data-theme='dark'] .bg-\[\#18181c\],
+html.dark .bg-\[\#18181c\],
 .dark .bg-\[\#18181c\] {
   background-color: #141922 !important;
 }
 
-:root:not([data-theme='light']) .bg-\[\#222228\],
+:root[data-theme='dark'] .bg-\[\#222228\],
+html.dark .bg-\[\#222228\],
 .dark .bg-\[\#222228\] {
   background-color: #1A2230 !important;
 }
 
-:root:not([data-theme='light']) .border-gray-800,
+:root[data-theme='dark'] .border-gray-800,
+html.dark .border-gray-800,
 .dark .border-gray-800,
-:root:not([data-theme='light']) .border-gray-700,
+:root[data-theme='dark'] .border-gray-700,
+html.dark .border-gray-700,
 .dark .border-gray-700,
-:root:not([data-theme='light']) .border-gray-700\/80,
+:root[data-theme='dark'] .border-gray-700\/80,
+html.dark .border-gray-700\/80,
 .dark .border-gray-700\/80,
-:root:not([data-theme='light']) .border-gray-700\/60,
+:root[data-theme='dark'] .border-gray-700\/60,
+html.dark .border-gray-700\/60,
 .dark .border-gray-700\/60 {
   border-color: #253044 !important;
+}
+
+/* =========================================================================
+   DYNAMIC ACCENT COLOR ENGINE
+   ========================================================================= */
+[data-accent='indigo'] {
+  --brand-primary: #6366F1;
+  --brand-primary-hover: #4F46E5;
+  --brand-mint: #A5B4FC;
+  --border-focus: #6366F1;
+}
+[data-accent='indigo'] .btn-primary {
+  background: #6366F1 !important;
+  border-color: #6366F1 !important;
+  box-shadow: 0 1px 3px 0 rgba(99, 102, 241, 0.25) !important;
+}
+[data-accent='indigo'] .btn-primary:hover {
+  background: #4F46E5 !important;
+  border-color: #4F46E5 !important;
+}
+[data-accent='indigo'] .text-teal-400,
+[data-accent='indigo'] .text-teal-300 {
+  color: #818CF8 !important;
+}
+[data-accent='indigo'] .bg-teal-400,
+[data-accent='indigo'] .bg-teal-500 {
+  background-color: #6366F1 !important;
+}
+[data-accent='indigo'] .border-teal-400,
+[data-accent='indigo'] .border-teal-400\/50,
+[data-accent='indigo'] .border-teal-500\/50 {
+  border-color: #6366F1 !important;
+}
+
+[data-accent='amber'] {
+  --brand-primary: #F59E0B;
+  --brand-primary-hover: #D97706;
+  --brand-mint: #FDE68A;
+  --border-focus: #F59E0B;
+}
+[data-accent='amber'] .btn-primary {
+  background: #F59E0B !important;
+  border-color: #F59E0B !important;
+  box-shadow: 0 1px 3px 0 rgba(245, 158, 11, 0.25) !important;
+}
+[data-accent='amber'] .btn-primary:hover {
+  background: #D97706 !important;
+  border-color: #D97706 !important;
+}
+[data-accent='amber'] .text-teal-400,
+[data-accent='amber'] .text-teal-300 {
+  color: #FBBF24 !important;
+}
+[data-accent='amber'] .bg-teal-400,
+[data-accent='amber'] .bg-teal-500 {
+  background-color: #F59E0B !important;
+}
+[data-accent='amber'] .border-teal-400,
+[data-accent='amber'] .border-teal-400\/50,
+[data-accent='amber'] .border-teal-500\/50 {
+  border-color: #F59E0B !important;
+}
+
+[data-accent='emerald'] {
+  --brand-primary: #10B981;
+  --brand-primary-hover: #059669;
+  --brand-mint: #6EE7B7;
+  --border-focus: #10B981;
+}
+[data-accent='emerald'] .btn-primary {
+  background: #10B981 !important;
+  border-color: #10B981 !important;
+  box-shadow: 0 1px 3px 0 rgba(16, 185, 129, 0.25) !important;
+}
+[data-accent='emerald'] .btn-primary:hover {
+  background: #059669 !important;
+  border-color: #059669 !important;
+}
+[data-accent='emerald'] .text-teal-400,
+[data-accent='emerald'] .text-teal-300 {
+  color: #34D399 !important;
+}
+[data-accent='emerald'] .bg-teal-400,
+[data-accent='emerald'] .bg-teal-500 {
+  background-color: #10B981 !important;
+}
+[data-accent='emerald'] .border-teal-400,
+[data-accent='emerald'] .border-teal-400\/50,
+[data-accent='emerald'] .border-teal-500\/50 {
+  border-color: #10B981 !important;
+}
+
+[data-accent='rose'] {
+  --brand-primary: #F43F5E;
+  --brand-primary-hover: #E11D48;
+  --brand-mint: #FDA4AF;
+  --border-focus: #F43F5E;
+}
+[data-accent='rose'] .btn-primary {
+  background: #F43F5E !important;
+  border-color: #F43F5E !important;
+  box-shadow: 0 1px 3px 0 rgba(244, 63, 94, 0.25) !important;
+}
+[data-accent='rose'] .btn-primary:hover {
+  background: #E11D48 !important;
+  border-color: #E11D48 !important;
+}
+[data-accent='rose'] .text-teal-400,
+[data-accent='rose'] .text-teal-300 {
+  color: #FB7185 !important;
+}
+[data-accent='rose'] .bg-teal-400,
+[data-accent='rose'] .bg-teal-500 {
+  background-color: #F43F5E !important;
+}
+[data-accent='rose'] .border-teal-400,
+[data-accent='rose'] .border-teal-400\/50,
+[data-accent='rose'] .border-teal-500\/50 {
+  border-color: #F43F5E !important;
+}
+
+/* =========================================================================
+   TYPOGRAPHY MODE ENGINE
+   ========================================================================= */
+[data-typography='editorial'] h1,
+[data-typography='editorial'] h2,
+[data-typography='editorial'] h3,
+[data-typography='editorial'] .font-heading,
+[data-typography='editorial'] .font-display {
+  font-family: 'Newsreader', Georgia, 'Times New Roman', serif !important;
+  letter-spacing: -0.015em;
+}
+
+[data-typography='sans'] h1,
+[data-typography='sans'] h2,
+[data-typography='sans'] h3,
+[data-typography='sans'] .font-heading {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif !important;
+}
+
+/* =========================================================================
+   LAYOUT DENSITY ENGINE
+   ========================================================================= */
+[data-density='compact'] .job-card-item,
+[data-density='compact'] .craft-card,
+[data-density='compact'] .p-5 {
+  padding: 0.85rem !important;
+}
+
+[data-density='compact'] .p-6 {
+  padding: 1rem !important;
+}
+
+[data-density='compact'] .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.625rem !important;
+}
+
+[data-density='compact'] .space-y-3\.5 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.5rem !important;
+}
+
+[data-density='compact'] .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0.35rem !important;
 }
 
 /* Map legacy yellow buttons & accents to Electric Teal (#14B8A6) and Mint (#5EEAD4) */

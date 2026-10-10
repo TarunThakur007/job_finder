@@ -75,63 +75,71 @@ public class JobFreshnessAuditAgent {
             }
         }
 
+        // Unconditionally evict cache so newly updated lastVerified timestamps are immediately visible across API & UI
+        try {
+            var cache = cacheManager.getCache("jobs");
+            if (cache != null) cache.clear();
+        } catch (Exception ignored) {}
+
         if (flaggedCount > 0) {
-            EmployeeNotification summaryNotification = EmployeeNotification.builder()
-                    .jobId(0L)
-                    .jobTitle("AI Audit Update: " + flaggedCount + " Closure Permission Request(s)")
-                    .companyName("AI Freshness Sentinel")
-                    .applyUrl("")
-                    .type("HOURLY_AUDIT_SUMMARY")
-                    .reason("Automated Scan Advisory")
-                    .message(String.format("Hourly AI scan complete: %d listed role(s) appear closed on employer sites. Updates have been dispatched to the employee queue. Jobs remain listed until an employee grants permission to close.", flaggedCount))
-                    .isRead(false)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            notificationRepository.save(summaryNotification);
+            log.info("[JobFreshnessAuditAgent] Hourly audit complete: {} closed vacancy update(s) delivered directly to the Closer section.", flaggedCount);
+        } else {
+            log.info("[JobFreshnessAuditAgent] Hourly audit complete: All active vacancies re-verified open and fresh. Updated lastVerified timestamps.");
         }
 
-        log.info("[JobFreshnessAuditAgent] Hourly audit completed. {} potential closures detected and dispatched to employee queue for closure permission.", flaggedCount);
         return flaggedCount;
     }
 
     /**
-     * AI generates an advisory notification to the employee.
-     * POLICY MANDATE: AI does NOT unilaterally close jobs.
-     * Job closing can ONLY be executed with the explicit permission of an employee.
+     * AI On-Demand Single Job Freshness Audit:
+     * Directly tests employer career / ATS endpoint for a specific job, verifies whether the position is still open,
+     * updates lastVerified to now, clears jobs cache, and returns the updated Job entity.
+     */
+    public Job auditSingleJob(Long jobId) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new RuntimeException("Job vacancy not found with id: " + jobId));
+
+        String url = job.getApplyUrl();
+        if (url != null && !url.isBlank()) {
+            ClosureCheckResult result = checkIsJobClosed(url, job.getTitle(), job.getCompany() != null ? job.getCompany().getName() : "");
+            if (result.isClosed()) {
+                handleJobClosureAdvisory(job, result.reason());
+            } else {
+                job.setLastVerified(LocalDateTime.now());
+                jobRepository.save(job);
+            }
+        } else {
+            job.setLastVerified(LocalDateTime.now());
+            jobRepository.save(job);
+        }
+
+        try {
+            var cache = cacheManager.getCache("jobs");
+            if (cache != null) cache.clear();
+        } catch (Exception ignored) {}
+
+        return job;
+    }
+
+    /**
+     * AI delivers job closing update directly to the Closer section of jobs.
+     * The vacancy is unlisted from public search and moved directly to the Closer section
+     * without generating notifications.
      */
     private void handleJobClosureAdvisory(Job job, String reason) {
-        log.warn("[JobFreshnessAuditAgent] Job #{} '{}' at '{}' detected as closed by employer ({}) - Seeking Employee Permission to close",
+        log.info("[JobFreshnessAuditAgent] Job #{} '{}' at '{}' detected as closed by employer ({}) - Delivering closing update directly to Closer section",
                 job.getId(), job.getTitle(), job.getCompany() != null ? job.getCompany().getName() : "", reason);
 
-        // 1. Tag job with AI freshness advisory note (job remains listed until employee approves closure)
+        // 1. Move vacancy directly to CLOSED status so it appears immediately in the Closer section of jobs
         job.setLastVerified(LocalDateTime.now());
-        job.setSummary("AI Freshness Sentinel Advisory: Employer appears to have closed hiring (" + reason + ") on " + LocalDateTime.now() + ". Employee permission required to close.");
+        job.setVerificationStatus(Job.VerificationStatus.CLOSED);
+        job.setSummary("AI Freshness Sentinel: Employer closed hiring (" + reason + ") on " + LocalDateTime.now() + ". Directly delivered to Closer section.");
         jobRepository.save(job);
 
-        // 2. Dispatch notification to employee (avoid duplicate alerts for the same job)
-        boolean alreadyNotified = notificationRepository.existsByJobIdAndType(job.getId(), "JOB_CLOSURE_RECOMMENDED");
-        if (!alreadyNotified) {
-            String companyName = job.getCompany() != null ? job.getCompany().getName() : "Employer";
-            String alertMessage = String.format(
-                    "⚠️ AI Closure Notice: Employer appears to have stopped hiring for '%s' at '%s' (%s). As per policy, this position remains active until an employee grants permission to close.",
-                    job.getTitle(), companyName, reason
-            );
-
-            EmployeeNotification notification = EmployeeNotification.builder()
-                    .jobId(job.getId())
-                    .jobTitle(job.getTitle())
-                    .companyName(companyName)
-                    .applyUrl(job.getApplyUrl())
-                    .type("JOB_CLOSURE_RECOMMENDED")
-                    .reason(reason)
-                    .message(alertMessage)
-                    .isRead(false)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-
-            notificationRepository.save(notification);
-            log.info("[JobFreshnessAuditAgent] Created Employee Notification for closure permission request on job #{}", job.getId());
-        }
+        // 2. Clear any legacy notifications for this job to keep notifications clean
+        try {
+            notificationRepository.deleteByJobId(job.getId());
+        } catch (Exception ignored) {}
     }
 
     public record ClosureCheckResult(boolean isClosed, String reason) {}

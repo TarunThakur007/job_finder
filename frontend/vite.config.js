@@ -9,6 +9,7 @@ export default defineConfig({
     imagetools()
   ],
   server: {
+    host: true,
     port: 5173,
     proxy: {
       '/api': {

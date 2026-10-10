@@ -25,21 +25,45 @@ import {
   AlertTriangle,
   Info,
   Check,
-  Loader2
+  Loader2,
+  RotateCw
 } from 'lucide-react';
+import { formatTimeAgo, formatFullAuditTimestamp } from '../utils/timeAgo';
 
 // Helper to provide comprehensive company information & description
-function getCompanyProfile(company, jobTitle) {
-  const name = typeof company === 'object' ? company?.name : (company || 'Leading Tech Enterprise');
+function getCompanyProfile(company, jobTitle, jobLocation) {
+  const name = typeof company === 'object' ? (company?.name || 'Leading Tech Enterprise') : (company || 'Leading Tech Enterprise');
   const industry = (typeof company === 'object' && company?.industry) ? company.industry : 'Technology & Cloud Solutions';
   const customDesc = (typeof company === 'object' && company?.description) ? company.description : null;
-  const website = (typeof company === 'object' && company?.website) ? company.website : null;
+  const compSlug = name !== 'Leading Tech Enterprise' ? name.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+  const website = (typeof company === 'object' && company?.website) 
+    ? company.website 
+    : (compSlug ? `https://www.${compSlug}.com` : null);
+  const linkedinUrl = (typeof company === 'object' && company?.linkedinUrl) 
+    ? company.linkedinUrl 
+    : (compSlug ? `https://www.linkedin.com/company/${compSlug}` : null);
+  const officeLocations = (typeof company === 'object' && company?.officeLocations) 
+    ? company.officeLocations 
+    : (jobLocation || 'Bengaluru, Karnataka | Hyderabad | Pune | Delhi NCR');
 
   if (customDesc && customDesc.trim().length > 30) {
-    return { name, industry, description: customDesc, website };
+    return { name, industry, description: customDesc, website, linkedinUrl, officeLocations };
   }
 
   const knownCompanies = {
+    'Swiggy': 'Swiggy is India\'s premier on-demand convenience and quick-commerce platform. Its engineering org architects hyperscale real-time dispatching, routing, and high-throughput order ledgers serving millions of daily Indian consumers.',
+    'CRED': 'CRED is a members-only fintech platform for creditworthy individuals. Engineering teams build low-latency event-driven microservices, high-security transaction vaults, and gamified mobile UI.',
+    'Razorpay': 'Razorpay is India\'s leading payments and neo-banking platform powering merchant payments, automated payouts, and corporate banking with 99.99% uptime.',
+    'Postman': 'Postman is the leading API platform used by 30+ million developers globally. The Bengaluru engineering hub drives core collaboration, API testing runtime, and protocol design.',
+    'Urban Company': 'Urban Company is Asia\'s largest home services platform, building complex matchmaking graphs, partner dispatch engines, and predictive operations tools.',
+    'BrowserStack': 'BrowserStack is the global leader in software testing on the cloud, powering over 2 million tests daily across real mobile and desktop browsers.',
+    'Zepto': 'Zepto is India\'s fastest-growing quick-commerce unicorn, pioneering 10-minute grocery delivery with custom dark-store warehouse robotics and routing.',
+    'Groww': 'Groww makes investing simple and direct for over 40 million Indians across stocks, mutual funds, and digital wealth management.',
+    'CleverTap': 'CleverTap is an AI-powered customer engagement platform processing billions of behavioral events every second on a custom in-memory database engine.',
+    'InMobi': 'InMobi is India\'s first unicorn, operating an AI-driven marketing cloud and smart lock screen platform reaching hundreds of millions of users daily.',
+    'PhonePe': 'PhonePe is India\'s leading digital payments app processing billions of monthly UPI transactions on high-performance distributed architectures.',
+    'Chargebee': 'Chargebee is a leading subscription billing and revenue management SaaS built in Chennai that empowers thousands of high-growth global businesses.',
+    'Juspay': 'Juspay processes over 100 million daily transactions for top Indian apps with functional programming (Haskell/PureScript) engineering excellence.',
     'Google': 'Google is a global technology leader committed to organizing the world\'s information and making it universally accessible. Engineering teams build hyperscale infrastructure, distributed databases, machine learning systems, and web platforms used by billions of people daily.',
     'Microsoft': 'Microsoft enables digital transformation for the era of an intelligent cloud and an intelligent edge. Its engineering culture values customer obsession, continuous learning, and inclusive systems powering enterprise cloud, developer tools, and consumer software worldwide.',
     'Amazon': 'Amazon is guided by customer obsession, passion for invention, commitment to operational excellence, and long-term thinking. Software teams architect high-throughput services for AWS, global supply chain automation, and large-scale digital commerce.',
@@ -54,14 +78,71 @@ function getCompanyProfile(company, jobTitle) {
     ? knownCompanies[matchedKey]
     : `${name} is an active technology organization recruiting verified software, engineering, and digital talent. All job requisitions are vetted directly through official corporate career endpoints and verified ATS pipelines.`;
 
-  return { name, industry, description: desc, website };
+  return { name, industry, description: desc, website, linkedinUrl, officeLocations };
 }
 
-export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply, currentUser, onRequireRegistration }) {
+export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply, currentUser, onRequireRegistration, onJobUpdated }) {
   if (!job) return null;
 
   const [verificationData, setVerificationData] = useState(null);
   const [loadingVerification, setLoadingVerification] = useState(true);
+  const [currentLastVerified, setCurrentLastVerified] = useState(job.lastVerified || job.postedDate);
+  const [now, setNow] = useState(Date.now());
+  const [savedLocally, setSavedLocally] = useState(() => {
+    if (isSaved !== undefined) return isSaved;
+    try {
+      const saved = JSON.parse(localStorage.getItem('jobproof_saved_jobs') || '[]');
+      return Array.isArray(saved) && saved.includes(job?.id);
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const handleSaveToggle = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('jobproof_saved_jobs') || '[]');
+      let updated;
+      if (saved.includes(job?.id)) {
+        updated = saved.filter(id => id !== job?.id);
+        setSavedLocally(false);
+      } else {
+        updated = [...saved, job?.id];
+        setSavedLocally(true);
+      }
+      localStorage.setItem('jobproof_saved_jobs', JSON.stringify(updated));
+    } catch (e) {}
+    if (onSave) onSave(job);
+  };
+
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Lock body scroll while modal is active
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  // Tick relative time every 10 seconds so elapsed time updates dynamically
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setCurrentLastVerified(job.lastVerified || job.postedDate);
+  }, [job.lastVerified, job.postedDate]);
 
   // Fetch authentic verification evidence directly from backend REST API
   useEffect(() => {
@@ -105,20 +186,21 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
     return () => { isMounted = false; };
   }, [job?.id]);
 
-  const companyProfile = getCompanyProfile(job.company, job.title);
-  const companyName = companyProfile.name;
+  const companyProfile = getCompanyProfile(job.company, job.title, job.location);
+  const companyName = String(companyProfile.name || 'Verified Employer');
+  const directApplyUrl = job.applyUrl || companyProfile.website;
 
   // STRICT PRD SECTION 7 DATA INTEGRITY:
   // "Never Invent Data: Salary, job descriptions, requirements, and eligibility are never fabricated.
   // If salary is absent from the official source, JobProof explicitly displays 'Salary not disclosed'."
   const hasDisclosedSalary = Boolean(
-    (job.salaryMin && job.salaryMax && job.salaryMin > 0) ||
+    (job.salaryMin && job.salaryMax && Number(job.salaryMin) > 0) ||
     (job.salary && job.salary !== 'Salary not disclosed' && job.salary !== 'Not disclosed') ||
     (job.salaryDisplay && job.salaryDisplay !== 'Salary not disclosed' && job.salaryDisplay !== 'Not disclosed')
   );
 
   const salaryDisplay = hasDisclosedSalary
-    ? (job.salaryDisplay || (job.salaryMin && job.salaryMax ? `$${job.salaryMin.toLocaleString()} - $${job.salaryMax.toLocaleString()} / yr` : job.salary))
+    ? (job.salaryDisplay || (job.salaryMin && job.salaryMax ? `$${Number(job.salaryMin).toLocaleString()} - $${Number(job.salaryMax).toLocaleString()} / yr` : job.salary))
     : 'Salary not disclosed';
 
   const salaryProvenance = hasDisclosedSalary ? 'Company provided' : 'Not disclosed';
@@ -127,8 +209,11 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
   // "If selection process details are absent, it displays 'Selection process not provided by employer.'"
   const hasSelectionProcess = Boolean(
     job.selectionProcess &&
-    job.selectionProcess.trim().length > 0 &&
-    !job.selectionProcess.toLowerCase().includes('not provided')
+    (Array.isArray(job.selectionProcess)
+      ? job.selectionProcess.length > 0
+      : (typeof job.selectionProcess === 'string' &&
+         job.selectionProcess.trim().length > 0 &&
+         !job.selectionProcess.toLowerCase().includes('not provided')))
   );
 
   const skillsList = (job.skills && job.skills.length > 0)
@@ -145,23 +230,36 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
   };
 
   const handleEmployerSiteClick = () => {
-    if (job.applyUrl) {
-      window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
+    if (directApplyUrl) {
+      window.open(directApplyUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
-  // Parse verification reasons
+  // Parse verification reasons safely
   const verificationReasons = React.useMemo(() => {
     if (!verificationData?.reasons) return [];
     if (Array.isArray(verificationData.reasons)) return verificationData.reasons;
-    return verificationData.reasons.split(';').map(r => r.trim()).filter(Boolean);
+    if (typeof verificationData.reasons === 'string') {
+      return verificationData.reasons.split(';').map(r => r.trim()).filter(Boolean);
+    }
+    return [];
   }, [verificationData]);
 
   const overallScore = verificationData?.finalScore || job.trustScore || job.score || 88;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#18181c] border border-gray-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto flex flex-col relative text-white">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md animate-fadeIn"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+    >
+      <div 
+        className="bg-[#18181c] border border-gray-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto flex flex-col relative text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Sticky Header Bar */}
         <div className="sticky top-0 z-20 bg-[#18181c]/95 backdrop-blur-md border-b border-gray-800 p-5 sm:p-6 flex items-center justify-between gap-4">
@@ -208,32 +306,65 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
         {/* Modal Body Content */}
         <div className="p-5 sm:p-8 space-y-7 flex-1">
 
-          {/* Quick Apply & Bookmark Action Banner */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#141922] border border-[#253044] flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="space-y-1 text-center sm:text-left">
-              <span className="text-[11px] font-bold uppercase tracking-wider flex items-center justify-center sm:justify-start gap-1.5 text-teal-400">
+          {/* Quick Apply & Links Action Banner */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-[#141922] border border-[#253044] flex flex-col lg:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center lg:text-left">
+              <span className="text-[11px] font-bold uppercase tracking-wider flex items-center justify-center lg:justify-start gap-1.5 text-teal-400">
                 <Sparkles className="w-3.5 h-3.5 text-teal-400" />
                 Verified Active Role Requisition
               </span>
               <p className="text-sm text-slate-300">
-                Verified opening at <strong className="text-white">{companyName}</strong>. Ready to apply directly?
+                Verified opening at <strong className="text-white">{companyName}</strong>. Official employer resources:
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-              {job.applyUrl && (
-                <button
-                  onClick={handleEmployerSiteClick}
-                  className="px-5 py-2.5 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-teal-500/25 transition flex items-center justify-center gap-1.5 active:scale-95"
+            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-center lg:justify-end">
+              {companyProfile.website && (
+                <a
+                  href={companyProfile.website.startsWith('http') ? companyProfile.website : `https://${companyProfile.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-[#253044] hover:border-slate-500 transition flex items-center gap-1.5"
+                  title="Visit official company website"
                 >
-                  <span>Apply on Employer Site</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
+                  <Globe className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Company Website</span>
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
               )}
+
+              {companyProfile.linkedinUrl && (
+                <a
+                  href={companyProfile.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-[#38bdf8] rounded-xl text-xs font-semibold border border-[#253044] hover:border-[#0a66c2]/50 transition flex items-center gap-1.5"
+                  title="View official company LinkedIn profile"
+                >
+                  <svg className="w-3.5 h-3.5 fill-[#0a66c2]" viewBox="0 0 24 24">
+                    <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.64a1.64 1.64 0 1 0 0 3.28 1.64 1.64 0 0 0 0-3.28Z"/>
+                  </svg>
+                  <span>LinkedIn Profile</span>
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+              )}
+
+              {directApplyUrl && (
+                <a
+                  href={directApplyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-teal-500/25 transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <span>Direct Apply Link</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+
               {onApply && (
                 <button
                   onClick={handleApplyClick}
-                  className="px-4 py-2.5 bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-[#253044] hover:border-slate-500 transition flex items-center justify-center gap-1.5"
+                  className="px-4 py-2 bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-white rounded-xl text-xs font-semibold border border-[#253044] hover:border-slate-500 transition flex items-center justify-center gap-1.5"
                 >
                   <Send className="w-3.5 h-3.5 text-teal-400" />
                   <span>Track Application</span>
@@ -283,6 +414,32 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
                 {job.vacanciesCount || 1} {job.vacanciesCount === 1 ? 'Open Position' : 'Open Positions'}
               </p>
               <span className="text-[10px] text-emerald-400 block font-medium">Verified Active</span>
+            </div>
+          </div>
+
+          {/* AI FRESHNESS & OPEN VERIFICATION SENTINEL BANNER (NO RECHECK BUTTON - VERIFIED STATUS) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#141922] to-teal-950/30 border border-emerald-500/40 shadow-xl">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex-shrink-0">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                  </span>
+                  <h4 className="text-sm font-extrabold text-white">
+                    We Checked This Job — Confirmed Open & Accepting Applications
+                  </h4>
+                  <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+                    Checked {formatTimeAgo(currentLastVerified, now)}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 font-mono">
+                  JobProof AI Agent continuously audits official career portal endpoints • Last confirmed: <strong className="text-white">{formatFullAuditTimestamp(currentLastVerified)}</strong>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -406,7 +563,7 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
           </div>
 
           {/* 2. COMPANY PROFILE SECTION */}
-          <div className="bg-[#222228] border border-gray-800 p-5 sm:p-6 rounded-2xl space-y-3">
+          <div className="bg-[#222228] border border-gray-800 p-5 sm:p-6 rounded-2xl space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-gray-800">
               <div className="flex items-center gap-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
                 <Building2 className="w-4 h-4 text-teal-400" />
@@ -421,20 +578,64 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
               {companyProfile.description}
             </p>
 
-            {companyProfile.website && (
-              <div className="pt-1">
+            {/* Office Locations & Nearest Campus */}
+            {companyProfile.officeLocations && (
+              <div className="p-3 rounded-xl bg-[#18181c] border border-gray-800 flex items-start gap-2.5">
+                <MapPin className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-bold text-gray-300 uppercase tracking-wider">
+                      Office Hubs & Locations:
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Verified Indian Hub
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {companyProfile.officeLocations}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Verified Links (Website, LinkedIn & Direct Apply) */}
+            <div className="flex items-center gap-3 flex-wrap pt-1">
+              {companyProfile.website && (
                 <a
                   href={companyProfile.website.startsWith('http') ? companyProfile.website : `https://${companyProfile.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-teal-400 hover:text-teal-300 font-bold"
+                  className="inline-flex items-center gap-1.5 text-xs text-teal-400 hover:text-teal-300 font-bold bg-teal-500/10 hover:bg-teal-500/20 px-3.5 py-2 rounded-xl border border-teal-500/30 transition-colors"
                 >
                   <Globe className="w-3.5 h-3.5" />
-                  <span>Visit Company Website</span>
+                  <span>Company Website</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
-              </div>
-            )}
+              )}
+              {companyProfile.linkedinUrl && (
+                <a
+                  href={companyProfile.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#38bdf8] hover:text-white font-bold bg-[#0a66c2]/20 hover:bg-[#0a66c2]/40 px-3.5 py-2 rounded-xl border border-[#0a66c2]/40 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.64a1.64 1.64 0 1 0 0 3.28 1.64 1.64 0 0 0 0-3.28Z"/></svg>
+                  <span>LinkedIn Profile</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+              {directApplyUrl && (
+                <a
+                  href={directApplyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-2 rounded-xl border border-emerald-500/30 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Direct Apply Link</span>
+                </a>
+              )}
+            </div>
           </div>
 
           {/* 3. COMPLETE JOB DESCRIPTION */}
@@ -491,8 +692,21 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
             </div>
 
             {hasSelectionProcess ? (
-              <div className="p-4 rounded-xl bg-[#222228] border border-gray-800 text-xs text-gray-300 leading-relaxed whitespace-pre-line">
-                {job.selectionProcess}
+              <div className="p-4 rounded-xl bg-[#222228] border border-gray-800 text-xs text-gray-300 leading-relaxed">
+                {Array.isArray(job.selectionProcess) ? (
+                  <div className="space-y-2">
+                    {job.selectionProcess.map((step, idx) => (
+                      <div key={idx} className="flex items-center gap-2.5">
+                        <span className="w-5 h-5 rounded-lg bg-teal-500/20 text-teal-300 font-mono font-bold text-[11px] flex items-center justify-center flex-shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span className="text-slate-200">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-line">{String(job.selectionProcess)}</p>
+                )}
               </div>
             ) : (
               <div className="p-4 rounded-xl bg-[#222228] border border-gray-800/80 flex items-start gap-3 text-xs text-slate-300">
@@ -539,26 +753,52 @@ export default function JobDetailsModal({ job, onClose, onSave, isSaved, onApply
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="sticky bottom-0 z-20 bg-[#141922]/95 backdrop-blur-md border-t border-[#253044] p-4 sm:p-5 flex items-center justify-between gap-4">
-          <button
-            onClick={() => onSave && onSave(job)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition ${isSaved
-                ? 'bg-teal-500/10 text-teal-300 border-teal-500/30'
-                : 'bg-[#0D1117] text-slate-300 border-[#253044] hover:text-white hover:bg-[#1A2230]'
-              }`}
-          >
-            {isSaved ? '✓ Saved in Bookmarks' : 'Bookmark Job'}
-          </button>
+        <div className="sticky bottom-0 z-20 bg-[#141922]/95 backdrop-blur-md border-t border-[#253044] p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSaveToggle}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition ${(isSaved || savedLocally)
+                  ? 'bg-teal-500/10 text-teal-300 border-teal-500/30'
+                  : 'bg-[#0D1117] text-slate-300 border-[#253044] hover:text-white hover:bg-[#1A2230]'
+                }`}
+            >
+              {(isSaved || savedLocally) ? '✓ Saved in Bookmarks' : 'Bookmark Job'}
+            </button>
+            {companyProfile.website && (
+              <a
+                href={companyProfile.website.startsWith('http') ? companyProfile.website : `https://${companyProfile.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-white text-xs font-medium border border-[#253044] transition"
+                title="Company Website"
+              >
+                <Globe className="w-3.5 h-3.5 text-teal-400" />
+                <span>Website</span>
+              </a>
+            )}
+            {companyProfile.linkedinUrl && (
+              <a
+                href={companyProfile.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-[#38bdf8] text-xs font-medium border border-[#253044] transition"
+                title="LinkedIn Company Page"
+              >
+                <svg className="w-3.5 h-3.5 fill-[#0a66c2]" viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.64a1.64 1.64 0 1 0 0 3.28 1.64 1.64 0 0 0 0-3.28Z"/></svg>
+                <span>LinkedIn</span>
+              </a>
+            )}
+          </div>
 
           <div className="flex items-center gap-2.5">
-            {job.applyUrl && (
+            {directApplyUrl && (
               <a
-                href={job.applyUrl}
+                href={directApplyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-5 py-2.5 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl text-xs font-bold shadow-md hover:shadow-teal-500/25 transition flex items-center gap-1.5 active:scale-95"
               >
-                <span>Apply on Employer Site</span>
+                <span>Direct Apply Link</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
             )}

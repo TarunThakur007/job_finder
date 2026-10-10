@@ -32,9 +32,12 @@ import {
   CheckCheck,
   Globe,
   Link as LinkIcon,
-  Filter
+  Filter,
+  ChevronDown,
+  X
 } from 'lucide-react';
 import EditAndGrantPermissionModal from './EditAndGrantPermissionModal';
+import { formatTimeAgo } from '../utils/timeAgo';
 
 export default function EmployeeControlSection({ 
   liveJobs = [], 
@@ -63,30 +66,108 @@ export default function EmployeeControlSection({
   const [editingJob, setEditingJob] = useState(null);
   const [grantingIds, setGrantingIds] = useState(new Set());
   const [stagedSourceFilter, setStagedSourceFilter] = useState('ALL');
+  const [filterLocation, setFilterLocation] = useState('ALL');
   const [copiedUrlId, setCopiedUrlId] = useState(null);
-
-  const handleCopyApplyUrl = (jobId, url) => {
-    if (!url) return;
-    try {
-      navigator.clipboard?.writeText(url);
-      setCopiedUrlId(jobId);
-      setTimeout(() => setCopiedUrlId(null), 2500);
-    } catch (e) {
-      console.warn('Clipboard write failed:', e);
-    }
-  };
-
-  // Gemini AI Raw Vacancy Ingestion & Permission Gateway State
-  const [aiIngestText, setAiIngestText] = useState('');
-  const [isAiIngesting, setIsAiIngesting] = useState(false);
-  const [ingestNotice, setIngestNotice] = useState(null);
-  const [showAiIngestBox, setShowAiIngestBox] = useState(true);
-
-  // Closed & Active Jobs Tracking State
   const [closedJobs, setClosedJobs] = useState([]);
   const [closingJobIds, setClosingJobIds] = useState(new Set());
   const [reopeningJobIds, setReopeningJobIds] = useState(new Set());
   const [deletingJobIds, setDeletingJobIds] = useState(new Set());
+
+  // Indian tech hubs for quick 1-click filtering (India locations only)
+  const locationPills = [
+    { id: 'ALL', label: 'All India Locations' },
+    { id: 'Remote', label: '🌐 Remote (India)' },
+    { id: 'Bengaluru', label: '🏙️ Bengaluru' },
+    { id: 'Hyderabad', label: '🏙️ Hyderabad' },
+    { id: 'Pune', label: '🏙️ Pune' },
+    { id: 'Delhi NCR', label: '🏙️ Delhi NCR' },
+    { id: 'Mumbai', label: '🏙️ Mumbai' },
+    { id: 'Chennai', label: '🏙️ Chennai' },
+    { id: 'Kolkata', label: '🏙️ Kolkata' },
+    { id: 'Ahmedabad', label: '🏙️ Ahmedabad' },
+    { id: 'Jaipur', label: '🏙️ Jaipur' },
+  ];
+
+  // Smart location matching for Indian metro hubs and remote variations
+  const matchesLocation = (jobLoc, target) => {
+    if (!target || target === 'ALL') return true;
+    const l = (jobLoc || '').toLowerCase().trim();
+    const t = target.toLowerCase().trim();
+    if (t === 'remote') {
+      return l.includes('remote') || l.includes('wfh') || l.includes('work from home') || l.includes('anywhere');
+    }
+    if (t === 'bengaluru' || t === 'bangalore') {
+      return l.includes('bengaluru') || l.includes('bangalore');
+    }
+    if (t === 'delhi ncr' || t === 'delhi' || t === 'ncr') {
+      return l.includes('delhi') || l.includes('noida') || l.includes('gurgaon') || l.includes('gurugram') || l.includes('ncr');
+    }
+    if (t === 'mumbai') {
+      return l.includes('mumbai') || l.includes('navi mumbai') || l.includes('thane');
+    }
+    if (t === 'hyderabad') {
+      return l.includes('hyderabad') || l.includes('secunderabad');
+    }
+    if (t === 'pune') {
+      return l.includes('pune');
+    }
+    if (t === 'chennai') {
+      return l.includes('chennai');
+    }
+    if (t === 'kolkata') {
+      return l.includes('kolkata') || l.includes('calcutta');
+    }
+    if (t === 'ahmedabad') {
+      return l.includes('ahmedabad');
+    }
+    if (t === 'jaipur') {
+      return l.includes('jaipur');
+    }
+    return l.includes(t);
+  };
+
+  const INDIAN_REGION_KEYWORDS = [
+    'india', 'bengaluru', 'bangalore', 'hyderabad', 'secunderabad',
+    'pune', 'mumbai', 'delhi', 'gurugram', 'gurgaon', 'noida', 'ncr',
+    'chennai', 'kolkata', 'ahmedabad', 'jaipur', 'kochi', 'cochin',
+    'trivandrum', 'thiruvananthapuram', 'indore', 'bhopal', 'chandigarh',
+    'mohali', 'lucknow', 'surat', 'vadodara', 'coimbatore', 'mysore',
+    'mysuru', 'nagpur', 'visakhapatnam', 'vizag', 'bhubaneswar', 'goa',
+    'karnataka', 'maharashtra', 'telangana', 'tamil nadu', 'haryana',
+    'uttar pradesh', 'west bengal', 'gujarat', 'rajasthan', 'kerala'
+  ];
+
+  const isIndiaLocation = (raw) => {
+    if (!raw) return false;
+    const lower = raw.toLowerCase();
+    if (lower.includes('united states') || lower.includes('germany') || lower.includes('berlin') ||
+        lower.includes('london') || lower.includes('united kingdom') || lower.includes('san francisco') ||
+        lower.includes('new york') || lower.includes('seattle') || lower.includes('washington') ||
+        lower.includes('california') || lower.includes('munich') || lower.includes('toronto') || lower.includes('canada')) {
+      return false;
+    }
+    return INDIAN_REGION_KEYWORDS.some(k => lower.includes(k));
+  };
+
+  // Dynamically extract all unique Indian locations discovered across all jobs
+  const discoveredLocations = React.useMemo(() => {
+    const locSet = new Set();
+    const addLoc = (raw) => {
+      if (!raw || typeof raw !== 'string') return;
+      const clean = raw.trim();
+      if (!clean || clean.length < 2) return;
+      if (!isIndiaLocation(clean)) return;
+      const lower = clean.toLowerCase();
+      if (['remote', 'bengaluru', 'bangalore', 'hyderabad', 'pune', 'mumbai', 'delhi', 'gurugram', 'noida', 'chennai', 'kolkata', 'ahmedabad', 'jaipur'].includes(lower)) {
+        return;
+      }
+      locSet.add(clean);
+    };
+    (pendingJobs || []).forEach(j => addLoc(j.location));
+    (liveJobs || []).forEach(j => addLoc(j.location));
+    (closedJobs || []).forEach(j => addLoc(j.location));
+    return Array.from(locSet).slice(0, 30).sort((a, b) => a.localeCompare(b));
+  }, [pendingJobs, liveJobs, closedJobs]);
 
   // Hourly AI Job Freshness & Closed Vacancy Notifications State
   const [notifications, setNotifications] = useState([]);
@@ -292,6 +373,10 @@ export default function EmployeeControlSection({
       if (pendingRes && pendingRes.ok) {
         const data = await pendingRes.json();
         setPendingJobs(data);
+        // If review queue has no staged vacancies, auto-sync Gemini AI jobs directly
+        if (Array.isArray(data) && data.length === 0) {
+          handleTriggerDiscovery('GEMINI_AI');
+        }
       }
       if (statsRes && statsRes.ok) {
         const stats = await statsRes.json();
@@ -459,83 +544,6 @@ export default function EmployeeControlSection({
     }
   };
 
-  const samplePresets = [
-    {
-      label: '🏪 Local Business',
-      desc: 'Jaipur IT agency walk-in',
-      text: 'Urgent Hiring: Senior Frontend React Developer at Krishna Web Infotech (Local IT Agency, Jaipur). Salary: ₹6.5 - 10 LPA. 3 openings. Skills: React, Tailwind CSS, JavaScript, Redux. Walk-in interview: B-14 Malviya Nagar, Jaipur. Apply: jobs@krishnaweb.in or WhatsApp 9829012345.'
-    },
-    {
-      label: '🚀 Tech Startup',
-      desc: 'Bengaluru AI startup',
-      text: 'We are hiring! Founding Full Stack Engineer at NextWave AI (Bengaluru Tech Startup, Hybrid). Salary: ₹18 - 28 LPA + 0.5% Equity. Skills: Next.js, Python, FastAPI, PostgreSQL, LangChain. Apply at https://nextwave.ai/careers or founders@nextwave.ai'
-    },
-    {
-      label: '🏢 MNC Enterprise',
-      desc: 'Gurugram Cloud team',
-      text: 'Tata Consultancy Services (TCS) is hiring Cloud Infrastructure Engineer. Location: Gurugram / Hyderabad (MNC). Salary: ₹12 - 18 LPA. 15 vacancies. Skills: AWS, Kubernetes, Terraform, Linux, CI/CD. Apply via TCS iON portal or careers.tcs.com/apply/cloud-dev'
-    }
-  ];
-
-  const handleAiIngestSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!aiIngestText.trim()) return;
-
-    setIsAiIngesting(true);
-    setIngestNotice(null);
-
-    try {
-      const res = await fetch('/api/admin/vacancies/ai-ingest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: aiIngestText.trim() })
-      });
-
-      if (res.ok) {
-        const stagedJob = await res.json();
-        setPendingJobs(prev => [stagedJob, ...prev.filter(j => j.id !== stagedJob.id)]);
-        setAdminStats(prev => prev ? {
-          ...prev,
-          pendingReviews: (prev.pendingReviews || 0) + 1
-        } : prev);
-
-        const compLabel = stagedJob.company?.name || 'Employer';
-        const typeLabel = stagedJob.company?.industry ? ` [${stagedJob.company.industry.replace('_', ' ')}]` : '';
-
-        setIngestNotice({
-          type: 'success',
-          msg: `✨ Gemini AI Extracted & Staged: "${stagedJob.title}" at ${compLabel}${typeLabel}! Review and grant permission below to publish live on the website.`
-        });
-
-        setActionNotice({
-          type: 'success',
-          msg: `AI Vacancy Ingested: "${stagedJob.title}" staged in queue awaiting employee permission!`,
-          actionLabel: 'Review Staged Job ↓',
-          onAction: () => {
-            const el = document.getElementById(`staged-job-${stagedJob.id}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }
-        });
-
-        setAiIngestText('');
-      } else {
-        const errText = await res.text();
-        setIngestNotice({
-          type: 'error',
-          msg: errText || 'Could not parse job details. Please check the text and try again.'
-        });
-      }
-    } catch (err) {
-      console.error('Error during AI ingestion:', err);
-      setIngestNotice({
-        type: 'error',
-        msg: 'Network or server error while connecting to Gemini AI.'
-      });
-    } finally {
-      setIsAiIngesting(false);
-    }
-  };
-
   const handleRunFreshnessAudit = async () => {
     setAuditingFreshness(true);
     setActionNotice(null);
@@ -546,31 +554,36 @@ export default function EmployeeControlSection({
         const flagged = data.flaggedCount || data.closedCount || 0;
         setActionNotice({
           type: 'success',
-          msg: `AI Freshness Sentinel Audit Complete: Audited ${data.totalAudited || activePublishedJobs.length || 0} listings. ${flagged} closure update(s) generated. Jobs remain active until an employee grants permission to close.`
+          msg: `AI Freshness Sentinel Complete: Audited ${data.totalAudited || activePublishedJobs.length || 0} listings. ${flagged} closure update(s) delivered directly to the Job Closer Section!`,
+          actionLabel: 'Open Job Closer Section →',
+          onAction: () => setEmployeeTab('closed')
         });
-        fetchNotifications();
+        fetchClosedJobs();
         fetchPendingJobs(true);
       }
     } catch (e) {
-      setActionNotice({ type: 'info', msg: 'Hourly Freshness Sentinel executed.' });
+      setActionNotice({ 
+        type: 'info', 
+        msg: 'Hourly Freshness Sentinel executed: updates sent directly to Closer section.',
+        actionLabel: 'Open Closer Section →',
+        onAction: () => setEmployeeTab('closed')
+      });
     } finally {
       setAuditingFreshness(false);
-      setTimeout(() => setActionNotice(null), 6000);
+      setTimeout(() => setActionNotice(null), 7000);
     }
   };
 
   useEffect(() => {
     fetchPendingJobs(false);
-    fetchNotifications();
     fetchClosedJobs();
     const interval = setInterval(() => {
-      fetchNotifications();
       fetchClosedJobs();
     }, 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Filter pending vacancies based on source & search
+  // Filter pending vacancies based on source, location & search
   const filteredVacancies = pendingJobs.filter(j => {
     if (stagedSourceFilter !== 'ALL') {
       const src = (j.source || '').toLowerCase();
@@ -582,6 +595,8 @@ export default function EmployeeControlSection({
       if (stagedSourceFilter === 'ARBEITNOW' && !src.includes('arbeitnow')) return false;
       if (stagedSourceFilter === 'ATS' && (src.includes('jobicy') || src.includes('remoteok') || src.includes('jooble') || src.includes('usajobs') || src.includes('arbeitnow') || src.includes('gemini'))) return false;
     }
+
+    if (!matchesLocation(j.location, filterLocation)) return false;
 
     if (!vacancySearch) return true;
     const term = vacancySearch.toLowerCase();
@@ -605,15 +620,19 @@ export default function EmployeeControlSection({
   }, [liveJobs]);
 
   const filteredActiveJobs = React.useMemo(() => {
-    if (!activeJobsSearch) return activePublishedJobs;
+    let result = activePublishedJobs;
+    if (filterLocation !== 'ALL') {
+      result = result.filter(j => matchesLocation(j.location, filterLocation));
+    }
+    if (!activeJobsSearch) return result;
     const term = activeJobsSearch.toLowerCase().trim();
-    return activePublishedJobs.filter(j => {
+    return result.filter(j => {
       const compName = (typeof j.company === 'object' ? j.company?.name : j.company || '').toLowerCase();
       const title = (j.title || '').toLowerCase();
       const location = (j.location || '').toLowerCase();
       return compName.includes(term) || title.includes(term) || location.includes(term);
     });
-  }, [activePublishedJobs, activeJobsSearch]);
+  }, [activePublishedJobs, activeJobsSearch, filterLocation]);
 
   const filteredClosedJobs = React.useMemo(() => {
     const seen = new Set();
@@ -625,15 +644,20 @@ export default function EmployeeControlSection({
       return true;
     });
 
-    if (!closedJobsSearch) return dedupedClosed;
+    let result = dedupedClosed;
+    if (filterLocation !== 'ALL') {
+      result = result.filter(j => matchesLocation(j.location, filterLocation));
+    }
+
+    if (!closedJobsSearch) return result;
     const term = closedJobsSearch.toLowerCase().trim();
-    return dedupedClosed.filter(j => {
+    return result.filter(j => {
       const compName = (typeof j.company === 'object' ? j.company?.name : j.company || '').toLowerCase();
       const title = (j.title || '').toLowerCase();
       const location = (j.location || '').toLowerCase();
       return compName.includes(term) || title.includes(term) || location.includes(term);
     });
-  }, [closedJobs, closedJobsSearch]);
+  }, [closedJobs, closedJobsSearch, filterLocation]);
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto py-8 px-4">
@@ -746,9 +770,9 @@ export default function EmployeeControlSection({
                 <Radio className="w-3.5 h-3.5 text-emerald-400" />
                 Hourly AI Job Freshness Agent Active (Cron: 00 * * * *)
               </span>
-              {unreadNotificationsCount > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black animate-pulse">
-                  {unreadNotificationsCount} Closed Roles Detected
+              {closedJobs.length > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-black">
+                  {closedJobs.length} Inactive Vacancies Tracked
                 </span>
               )}
             </div>
@@ -758,29 +782,26 @@ export default function EmployeeControlSection({
             </h3>
 
             <p className="text-xs text-gray-400 leading-relaxed">
-              Every hour, the AI Sentinel pings all live vacancies listed on the website. If an employer removes the position or their ATS flags it as closed/expired, the AI agent <strong>dispatches an advisory alert here for employee review</strong>. In strict compliance with policy, <strong>jobs are NOT closed automatically by AI — job closure can ONLY be executed with the permission of an employee</strong>.
+              Every hour, the AI Sentinel inspects all live vacancies listed on the website. If an employer removes a position or their ATS flags it as closed/expired, the AI agent <strong>routes the closing update directly into the Job Closer Section</strong>. Jobs are instantly unlisted from the public User page without cluttering employee notifications.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
             <button
-              onClick={() => setShowNotificationDrawer(!showNotificationDrawer)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition border ${
-                unreadNotificationsCount > 0
-                  ? 'bg-rose-950/40 border-rose-800 text-rose-300 hover:bg-rose-900/50'
-                  : 'bg-[#18181c] border-gray-800 text-gray-300 hover:bg-gray-800'
-              }`}
+              type="button"
+              onClick={() => setEmployeeTab('closed')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800 text-rose-300 text-xs font-bold transition active:scale-95 shadow-sm"
+              title="Open Job Closer Section directly"
             >
-              <Bell className={`w-4 h-4 ${unreadNotificationsCount > 0 ? 'text-rose-400 animate-bounce' : 'text-gray-400'}`} />
-              <span>Closure Alerts</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                unreadNotificationsCount > 0 ? 'bg-rose-500 text-white' : 'bg-gray-800 text-gray-400'
-              }`}>
-                {unreadNotificationsCount}
+              <Lock className="w-4 h-4 text-rose-400" />
+              <span>Direct to Closer Section</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white">
+                {closedJobs.length}
               </span>
             </button>
 
             <button
+              type="button"
               onClick={handleRunFreshnessAudit}
               disabled={auditingFreshness}
               className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-yellow-400 hover:bg-yellow-300 text-gray-950 text-xs font-black transition shadow-lg shadow-yellow-500/20 active:scale-95 disabled:opacity-60"
@@ -790,80 +811,6 @@ export default function EmployeeControlSection({
             </button>
           </div>
         </div>
-
-        {/* Expandable Notification Drawer */}
-        {showNotificationDrawer && (
-          <div className="pt-4 border-t border-gray-800/80 space-y-3 animate-fadeIn">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-                Automated Freshness Sentinel Logs ({notifications.length})
-              </span>
-              <button
-                onClick={() => setShowNotificationDrawer(false)}
-                className="text-xs text-gray-400 hover:text-white font-bold"
-              >
-                Close Drawer ✕
-              </button>
-            </div>
-
-            {notifications.length === 0 ? (
-              <p className="text-xs text-gray-500 py-3 italic">
-                All live listings are active and returning HTTP 200 OK. No closed vacancies detected.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`p-3.5 rounded-xl border text-xs flex items-start justify-between gap-3 ${
-                      notif.isRead
-                        ? 'bg-[#18181c] border-gray-800 text-gray-400'
-                        : 'bg-rose-950/30 border-rose-800/60 text-rose-200'
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <div className="font-bold flex items-center gap-2 flex-wrap">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                        <span className="text-white font-extrabold">{notif.jobTitle || notif.title || 'Role Closed'}</span>
-                        {notif.companyName && (
-                          <span className="px-2 py-0.5 rounded bg-yellow-400/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-mono">
-                            {notif.companyName}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-gray-300 leading-relaxed">{notif.message}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent hourly audit'}
-                        {notif.reason ? ` • ${notif.reason}` : ''}
-                      </p>
-                    </div>
-
-                    {!notif.isRead && (
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {notif.jobId > 0 && (
-                          <button
-                            onClick={() => handleGrantClosePermission(notif)}
-                            className="px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-[11px] font-black border border-rose-400/50 shadow-sm active:scale-95 flex items-center gap-1.5"
-                            title="Grant employee permission to close this vacancy"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Grant Permission to Close</span>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleMarkNotificationRead(notif.id)}
-                          className="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-[10px] font-bold border border-gray-700 whitespace-nowrap"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 3-WAY WORKSPACE TAB SWITCHER */}
@@ -910,8 +857,8 @@ export default function EmployeeControlSection({
           }`}
         >
           <Lock className="w-3.5 h-3.5" />
-          <span>Closed Jobs & Inactive Vacancies</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] bg-black/20 font-mono">
+          <span>Job Closer Section</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-black/20 font-mono font-bold">
             {closedJobs.length}
           </span>
         </button>
@@ -991,129 +938,38 @@ export default function EmployeeControlSection({
           </div>
         </div>
 
-        {/* 🤖 GEMINI AI SMART VACANCY INGESTION BOX */}
-        <div className="bg-[#18181c] border border-amber-500/40 rounded-2xl p-5 sm:p-6 space-y-4 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-72 h-28 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
-            <div className="space-y-1">
+        {/* 🤖 GEMINI AI DIRECT EXTRACTION ENGINE STATUS */}
+        <div className="bg-gradient-to-r from-amber-500/10 via-[#18181c] to-emerald-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg relative overflow-hidden">
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-400/10 border border-amber-500/30 text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-amber-400 animate-spin" />
-                  Gemini AI Extraction Engine
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
-                  Staging → Employee Permission Gateway
+                <span className="text-xs sm:text-sm font-black text-white">Gemini AI Direct Extraction Engine</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Auto-Feed Active
                 </span>
               </div>
-              <h4 className="text-base font-black text-white flex items-center gap-2">
-                <Wand2 className="w-4 h-4 text-amber-400" />
-                <span>Smart Vacancy Ingestion (Local Business • Startup • MNC)</span>
-              </h4>
-              <p className="text-xs text-gray-400 leading-relaxed max-w-3xl">
-                Paste any unstructured text: WhatsApp broadcast, Telegram job circular, LinkedIn snippet, or raw description. Gemini automatically extracts <strong>Title, Skills, Salary, Location, and Company Type</strong>, then pushes the vacancy into the <strong>Staging Queue below</strong> for your review and permission granting before it appears live on the User page.
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Indian tech & fresher vacancies are automatically discovered and staged directly into your review queue below for verification.
               </p>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setShowAiIngestBox(!showAiIngestBox)}
-              className="text-xs text-gray-400 hover:text-white font-bold self-start sm:self-center px-3 py-1.5 rounded-lg bg-[#222228] border border-gray-700"
-            >
-              {showAiIngestBox ? 'Hide Ingestion Box ▲' : 'Show Ingestion Box ▼'}
-            </button>
           </div>
 
-          {showAiIngestBox && (
-            <div className="space-y-4 pt-2 relative z-10 animate-fadeIn">
-              {/* Quick Sample Presets */}
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-amber-400" />
-                  Load Sample Circular:
-                </span>
-                {samplePresets.map((preset, pIdx) => (
-                  <button
-                    key={pIdx}
-                    type="button"
-                    onClick={() => {
-                      setAiIngestText(preset.text);
-                      setIngestNotice(null);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-[#222228] hover:bg-gray-800 text-gray-300 hover:text-amber-400 border border-gray-700/80 text-[11px] font-semibold transition active:scale-95 flex items-center gap-1.5"
-                    title={preset.desc}
-                  >
-                    <span>{preset.label}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Raw Text Input Area */}
-              <div className="relative">
-                <textarea
-                  rows={4}
-                  value={aiIngestText}
-                  onChange={(e) => setAiIngestText(e.target.value)}
-                  placeholder="Paste WhatsApp message, LinkedIn post, Telegram circular, or raw vacancy description here... (e.g. 'Urgent hiring: React Developer at Apex Tech, Jaipur. Salary 6-10 LPA. Skills: React, Tailwind. Contact: hr@apex.in')"
-                  className="w-full p-4 bg-[#222228] border border-gray-700 focus:border-amber-400 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none transition leading-relaxed resize-y min-h-[90px]"
-                />
-              </div>
-
-              {/* Action Buttons & Ingestion Notice */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="text-[11px] text-gray-400 flex items-center gap-2">
-                  <span>{aiIngestText.length} characters</span>
-                  {aiIngestText.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setAiIngestText('')}
-                      className="text-gray-500 hover:text-rose-400 underline font-medium"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isAiIngesting || !aiIngestText.trim()}
-                  onClick={handleAiIngestSubmit}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-gray-950 text-xs font-black transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAiIngesting ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Gemini AI Extracting & Staging...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Extract with Gemini AI & Stage Vacancy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Feedback Notice */}
-              {ingestNotice && (
-                <div className={`p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 animate-fadeIn ${
-                  ingestNotice.type === 'success' 
-                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
-                    : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
-                }`}>
-                  <div className="flex items-center gap-2.5">
-                    {ingestNotice.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-                    )}
-                    <span>{ingestNotice.msg}</span>
-                  </div>
-                  <button onClick={() => setIngestNotice(null)} className="text-gray-400 hover:text-white p-1">✕</button>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-2 relative z-10">
+            <button
+              type="button"
+              onClick={() => handleTriggerDiscovery('GEMINI_AI')}
+              disabled={discovering}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-gray-950 text-xs font-black transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 disabled:opacity-50"
+              title="Automatically trigger Gemini AI extraction to discover and stage fresh Indian tech jobs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${discovering ? 'animate-spin' : ''}`} />
+              <span>{discovering ? 'Extracting...' : 'Sync Gemini AI Jobs'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Filter Toolbar */}
@@ -1147,6 +1003,55 @@ export default function EmployeeControlSection({
                 {chip.label}
               </button>
             ))}
+          </div>
+
+          {/* Location Quick Hub Filter Chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/60">
+            <span className="text-[11px] font-bold text-gray-400 mr-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-yellow-400" />
+              Filter by Location:
+            </span>
+            {locationPills.map((pill) => (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setFilterLocation(pill.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  filterLocation === pill.id
+                    ? 'bg-yellow-400 text-gray-950 font-black shadow-sm shadow-yellow-400/20'
+                    : 'bg-[#18181c] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+            {/* Custom Location Select Dropdown */}
+            <div className="relative inline-block">
+              <select
+                value={locationPills.some(p => p.id === filterLocation) ? '' : filterLocation}
+                onChange={(e) => {
+                  if (e.target.value) setFilterLocation(e.target.value);
+                }}
+                className="pl-2.5 pr-7 py-1.5 bg-[#18181c] border border-gray-800 hover:border-yellow-400/50 rounded-xl text-xs text-gray-300 font-semibold focus:outline-none focus:border-yellow-400 cursor-pointer appearance-none transition"
+              >
+                <option value="">More Cities...</option>
+                {discoveredLocations.map((loc) => (
+                  <option key={loc} value={loc}>📌 {loc}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {filterLocation !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setFilterLocation('ALL')}
+                className="px-2 py-1 rounded-lg bg-yellow-400/10 hover:bg-yellow-400/20 text-yellow-400 border border-yellow-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                title="Reset location filter"
+              >
+                <X className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1437,16 +1342,74 @@ export default function EmployeeControlSection({
             </div>
           </div>
 
+          {/* Location Quick Hub Filter Chips for Live Jobs */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/60">
+            <span className="text-[11px] font-bold text-gray-400 mr-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-teal-400" />
+              Filter by Location:
+            </span>
+            {locationPills.map((pill) => (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setFilterLocation(pill.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  filterLocation === pill.id
+                    ? 'bg-teal-400 text-gray-950 font-black shadow-sm shadow-teal-400/20'
+                    : 'bg-[#18181c] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+            {/* Custom Location Select Dropdown */}
+            <div className="relative inline-block">
+              <select
+                value={locationPills.some(p => p.id === filterLocation) ? '' : filterLocation}
+                onChange={(e) => {
+                  if (e.target.value) setFilterLocation(e.target.value);
+                }}
+                className="pl-2.5 pr-7 py-1.5 bg-[#18181c] border border-gray-800 hover:border-teal-400/50 rounded-xl text-xs text-gray-300 font-semibold focus:outline-none focus:border-teal-400 cursor-pointer appearance-none transition"
+              >
+                <option value="">More Cities...</option>
+                {discoveredLocations.map((loc) => (
+                  <option key={loc} value={loc}>📌 {loc}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {filterLocation !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setFilterLocation('ALL')}
+                className="px-2 py-1 rounded-lg bg-teal-400/10 hover:bg-teal-400/20 text-teal-400 border border-teal-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                title="Reset location filter"
+              >
+                <X className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+
           {/* Search bar for active jobs */}
-          <div className="relative w-full sm:w-96">
-            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search live jobs by title, company, location..."
-              value={activeJobsSearch}
-              onChange={(e) => setActiveJobsSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-teal-400"
-            />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-96">
+              <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search live jobs by title, company, location..."
+                value={activeJobsSearch}
+                onChange={(e) => setActiveJobsSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-teal-400"
+              />
+            </div>
+
+            <div className="text-xs text-gray-400 font-semibold flex items-center gap-2">
+              <span>Showing:</span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#18181c] border border-gray-800 text-teal-400 font-extrabold">
+                {filteredActiveJobs.length} of {activePublishedJobs.length} Live Positions
+              </span>
+            </div>
           </div>
 
           {/* Active Job Cards */}
@@ -1473,6 +1436,16 @@ export default function EmployeeControlSection({
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             Live on User Page
+                          </span>
+                          <span 
+                            className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5"
+                            title={`Agent last checked: ${job.lastVerified || job.postedDate}`}
+                          >
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400"></span>
+                            </span>
+                            <span>Open • Checked {formatTimeAgo(job.lastVerified || job.postedDate)}</span>
                           </span>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-gray-400 bg-[#222228] border border-gray-700">
                             ID: #{job.id}
@@ -1558,17 +1531,17 @@ export default function EmployeeControlSection({
         </div>
       )}
 
-      {/* 3. CLOSED JOBS & INACTIVE VACANCIES */}
+      {/* 3. JOB CLOSER SECTION (CLOSED VACANCIES) */}
       {employeeTab === 'closed' && (
         <div className="bg-[#222228] border border-rose-500/30 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xl animate-fadeIn">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
             <div>
               <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <Lock className="w-5 h-5 text-rose-400" />
-                <span>Closed Jobs & Inactive Vacancies</span>
+                <span>Job Closer Section (Closed & Inactive Vacancies)</span>
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                These vacancies have been closed by recruiters or flagged as closed by the hourly AI Freshness Agent. They are completely unlisted from the public User page. You can reopen or permanently delete them here.
+                The AI Freshness Sentinel delivers role closure updates directly to this section. All roles here are immediately hidden from the public User page. You can review employer closure reasons, re-open any vacancy, or permanently delete records.
               </p>
             </div>
 
@@ -1581,7 +1554,7 @@ export default function EmployeeControlSection({
                   type="button"
                   onClick={handleRemoveAllClosedJobs}
                   className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-600/20 active:scale-95"
-                  title="Permanently remove all closed jobs from database and clear all related notifications"
+                  title="Permanently remove all closed jobs from database"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Remove All Closed Jobs</span>
@@ -1590,16 +1563,106 @@ export default function EmployeeControlSection({
             </div>
           </div>
 
+          {/* AI AGENT DIRECT CLOSER FEED BANNER */}
+          <div className="bg-[#17121b] border border-rose-500/40 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-inner">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center flex-shrink-0 text-rose-400">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-black text-rose-300 uppercase tracking-wider">
+                    AI Sentinel Direct Closing Feed
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold">
+                    Direct Routing Active • No Notification Clutter
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  When employers close or expire a vacancy, the AI agent updates it directly in this Closer section. No manual notification triage is required.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleRunFreshnessAudit}
+              disabled={auditingFreshness}
+              className="px-4 py-2 rounded-xl bg-[#251b29] hover:bg-[#34243b] border border-rose-500/40 text-rose-200 text-xs font-bold transition flex items-center gap-2 flex-shrink-0 active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-rose-400 ${auditingFreshness ? 'animate-spin' : ''}`} />
+              <span>{auditingFreshness ? 'Auditing URLs...' : 'Sync AI Closures'}</span>
+            </button>
+          </div>
+
+          {/* Location Quick Hub Filter Chips for Closed Jobs */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-800/60">
+            <span className="text-[11px] font-bold text-gray-400 mr-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-rose-400" />
+              Filter by Location:
+            </span>
+            {locationPills.map((pill) => (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setFilterLocation(pill.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition active:scale-95 ${
+                  filterLocation === pill.id
+                    ? 'bg-rose-500 text-white font-black shadow-sm shadow-rose-500/20'
+                    : 'bg-[#18181c] text-gray-400 hover:text-white border border-gray-800'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+            {/* Custom Location Select Dropdown */}
+            <div className="relative inline-block">
+              <select
+                value={locationPills.some(p => p.id === filterLocation) ? '' : filterLocation}
+                onChange={(e) => {
+                  if (e.target.value) setFilterLocation(e.target.value);
+                }}
+                className="pl-2.5 pr-7 py-1.5 bg-[#18181c] border border-gray-800 hover:border-rose-400/50 rounded-xl text-xs text-gray-300 font-semibold focus:outline-none focus:border-rose-400 cursor-pointer appearance-none transition"
+              >
+                <option value="">More Cities...</option>
+                {discoveredLocations.map((loc) => (
+                  <option key={loc} value={loc}>📌 {loc}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            {filterLocation !== 'ALL' && (
+              <button
+                type="button"
+                onClick={() => setFilterLocation('ALL')}
+                className="px-2 py-1 rounded-lg bg-rose-400/10 hover:bg-rose-400/20 text-rose-400 border border-rose-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                title="Reset location filter"
+              >
+                <X className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+
           {/* Search bar for closed jobs */}
-          <div className="relative w-full sm:w-96">
-            <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search closed jobs by title, company, location..."
-              value={closedJobsSearch}
-              onChange={(e) => setClosedJobsSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-400"
-            />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-96">
+              <Search className="w-4 h-4 text-gray-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search closed jobs by title, company, location..."
+                value={closedJobsSearch}
+                onChange={(e) => setClosedJobsSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-[#18181c] border border-gray-800 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-400"
+              />
+            </div>
+
+            <div className="text-xs text-gray-400 font-semibold flex items-center gap-2">
+              <span>Showing:</span>
+              <span className="px-2.5 py-1 rounded-lg bg-[#18181c] border border-gray-800 text-rose-400 font-extrabold">
+                {filteredClosedJobs.length} of {closedJobs.length} Closed Positions
+              </span>
+            </div>
           </div>
 
           {/* Closed Job Cards */}

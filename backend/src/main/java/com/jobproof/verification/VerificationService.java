@@ -90,6 +90,7 @@ public class VerificationService {
                 .finalScore(finalScore)
                 .status(status.name())
                 .reasons(reasons)
+                .lastVerified(job.getLastVerified())
                 .build();
     }
 

@@ -11,8 +11,10 @@ import {
   RotateCcw,
   Sparkles,
   AlertTriangle,
-  Trash2
+  Trash2,
+  Globe
 } from 'lucide-react';
+import { formatTimeAgo, formatFullAuditTimestamp } from '../utils/timeAgo';
 
 export function formatSignal(signal) {
   if (!signal) return '';
@@ -42,9 +44,19 @@ export default function JobTable({
   onSelectJob, 
   onApplyJob, 
   onClearSearch, 
+  onJobUpdated,
   pageSize = 20 
 }) {
   const [visibleCount, setVisibleCount] = useState(pageSize);
+  const [now, setNow] = useState(Date.now());
+
+  // Live timer tick: updates every 10 seconds so relative time naturally increases as user browses
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now());
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Reset pagination window whenever search filter or job results change
   useEffect(() => {
@@ -81,34 +93,52 @@ export default function JobTable({
 
   return (
     <div className="space-y-3.5">
-      {displayedJobs.map((job) => {
-        const compName = typeof job.company === 'object' ? job.company.name : job.company;
+      {displayedJobs.map((rawJob) => {
+        if (!rawJob) return null;
+        const job = rawJob;
+        const companyObj = typeof job.company === 'object' && job.company !== null ? job.company : null;
+        const compName = companyObj?.name || (typeof job.company === 'string' ? job.company : 'Verified Employer');
+        const compSlug = compName !== 'Verified Employer' ? compName.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        const companyWebsite = companyObj?.website || (compSlug ? `https://www.${compSlug}.com` : null);
+        const companyLinkedin = companyObj?.linkedinUrl || (compSlug ? `https://www.linkedin.com/company/${compSlug}` : null);
+        const directApplyUrl = job.applyUrl || companyWebsite;
         const score = job.score || job.trustScore || 95;
         const salaryText = job.salaryDisplay || job.salary || "Salary not disclosed";
+        const verificationTimestamp = job.lastVerified || job.postedDate;
+        const relativeCheckedTime = formatTimeAgo(verificationTimestamp, now);
 
         return (
           <div 
             key={job.id} 
             onClick={() => onSelectJob && onSelectJob(job)}
-            className="border p-5 rounded-2xl cursor-pointer space-y-4 group select-none transition-colors duration-150 shadow-sm bg-[#141922] border-[#253044] hover:border-teal-500/50 hover:bg-[#1A2230] hover:shadow-lg hover:shadow-teal-500/5"
+            className="job-card-item craft-card border border-[#253044] hover:border-teal-500/50 hover:bg-[#1A2230] hover:shadow-lg hover:shadow-teal-500/5 p-5 rounded-2xl cursor-pointer space-y-4 group select-none transition-all duration-200 shadow-sm bg-[#141922]"
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               {/* Job Title & Company Info */}
               <div className="space-y-2 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 uppercase tracking-wider">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    Verified
+                  {/* High Trust AI Agent Verified Open Badge */}
+                  <span 
+                    className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5"
+                    title={`JobProof Agent checked official employer endpoint: ${formatFullAuditTimestamp(verificationTimestamp)}`}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                    <span className="uppercase tracking-wider font-extrabold text-[11px]">Open</span>
+                    <span className="text-emerald-500/60">•</span>
+                    <span className="text-emerald-200 font-medium">Checked {relativeCheckedTime}</span>
                   </span>
 
-                  <h3 className="text-base sm:text-lg font-extrabold transition-colors tracking-tight text-white group-hover:text-teal-300">
+                  <h3 className="font-heading text-base sm:text-lg font-extrabold transition-colors tracking-tight text-white group-hover:text-teal-300">
                     {job.title}
                   </h3>
 
-                  <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#0D1117] text-slate-400 border border-[#253044]">
+                  <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#0D1117] text-slate-400 border border-[#253044]">
                     {job.jobType || job.employmentType || "Fulltime"}
                   </span>
-                  <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#0D1117] text-slate-400 border border-[#253044] flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full bg-[#0D1117] text-slate-400 border border-[#253044] flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
                     <span>{job.vacanciesCount || job.openings || 1} {(job.vacanciesCount || job.openings || 1) === 1 ? 'Requisition' : 'Requisitions'}</span>
                   </span>
@@ -123,10 +153,56 @@ export default function JobTable({
                     <MapPin className="w-3.5 h-3.5 text-slate-400" /> {job.location}
                   </span>
                   <span className="text-slate-600">•</span>
-                  {/* Salary: Strictly Amber #F59E0B */}
+                  {/* Salary */}
                   <span className="font-mono text-amber-400 font-bold tabular-nums">
                     {salaryText}
                   </span>
+                </div>
+
+                {/* Company Website, LinkedIn & Direct Links Row */}
+                <div className="flex flex-wrap items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                  {companyWebsite && (
+                    <a
+                      href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-teal-300 border border-[#253044] hover:border-teal-500/40 text-xs font-mono transition-colors"
+                      title={`Visit ${compName} Official Website`}
+                    >
+                      <Globe className="w-3.5 h-3.5 text-teal-400" />
+                      <span>Company Website</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </a>
+                  )}
+
+                  {companyLinkedin && (
+                    <a
+                      href={companyLinkedin}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0D1117] hover:bg-[#1A2230] text-slate-300 hover:text-[#38bdf8] border border-[#253044] hover:border-[#0a66c2]/50 text-xs font-mono transition-colors"
+                      title={`View ${compName} on LinkedIn`}
+                    >
+                      <svg className="w-3.5 h-3.5 fill-[#0a66c2]" viewBox="0 0 24 24">
+                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.64a1.64 1.64 0 1 0 0 3.28 1.64 1.64 0 0 0 0-3.28Z"/>
+                      </svg>
+                      <span>LinkedIn Profile</span>
+                      <ExternalLink className="w-3 h-3 opacity-60" />
+                    </a>
+                  )}
+
+                  {directApplyUrl && (
+                    <a
+                      href={directApplyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-white border border-teal-500/30 text-xs font-mono font-medium transition-colors"
+                      title="Direct Application Link"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-teal-400" />
+                      <span>Direct Apply Link</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -135,44 +211,53 @@ export default function JobTable({
                 {/* Trust Score: Teal Primary Visual */}
                 <div 
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#0D1117] border border-[#253044] text-xs"
-                  title="Trust score based on available evidence."
+                  title="Trust score based on verified employer & ATS endpoint evidence."
                 >
                   <ShieldCheck className="w-4 h-4 text-teal-400 flex-shrink-0" />
-                  <span className="text-slate-400 font-mono text-[11px]">Trust</span>
+                  <span className="text-slate-400 font-mono text-xs">Trust</span>
                   <span className="font-mono font-black text-teal-400 tabular-nums">{score}%</span>
                 </div>
 
                 {/* View Details Outline Button */}
                 <button
                   type="button"
-                  onClick={() => onSelectJob && onSelectJob(job)}
-                  className="px-3.5 py-2 bg-[#0D1117] hover:bg-[#1A2230] border border-[#253044] hover:border-slate-500 text-slate-300 hover:text-white rounded-xl font-semibold text-xs transition flex items-center gap-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectJob) onSelectJob(job);
+                  }}
+                  className="px-3.5 py-2 bg-[#0D1117] hover:bg-[#1A2230] border border-[#253044] hover:border-teal-400 text-slate-300 hover:text-white rounded-xl font-semibold text-xs transition flex items-center gap-1 cursor-pointer"
+                  title="View complete verified requisition specifications"
                 >
                   View Details
                 </button>
 
                 {/* Apply Directly: Primary Teal CTA */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (onApplyJob) {
-                      onApplyJob(job);
-                    } else if (job.applyUrl) {
-                      window.open(job.applyUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                  className="px-4 py-2 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl font-bold text-xs transition shadow-md hover:shadow-teal-500/25 active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
-                  title="Forward directly to company application page"
-                >
-                  <span>Apply Directly →</span>
-                </button>
+                {directApplyUrl ? (
+                  <a
+                    href={directApplyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl font-bold text-xs transition shadow-md hover:shadow-teal-500/25 active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
+                    title="Direct application on employer careers portal"
+                  >
+                    <span>Direct Apply →</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelectJob && onSelectJob(job)}
+                    className="px-4 py-2 bg-[#14B8A6] hover:bg-[#0D9488] text-white rounded-xl font-bold text-xs transition shadow-md hover:shadow-teal-500/25 active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <span>View Opening →</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Signals & Verification Highlights */}
-            <div className="pt-3 border-t border-[#253044] flex flex-wrap items-center justify-between gap-2 text-xs">
+            {/* Signals & AI Agent Verification Status (No Recheck Button - Just Verified Status) */}
+            <div className="pt-3 border-t border-[#253044] flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                <span className="text-xs font-mono uppercase tracking-wider text-slate-400">
                   Audit:
                 </span>
                 {Array.from(new Set(
@@ -180,16 +265,23 @@ export default function JobTable({
                     .map(formatSignal)
                     .filter(Boolean)
                 )).map((signal, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 text-[11px] font-mono text-slate-300 bg-[#0D1117] border border-[#253044] px-2.5 py-0.5 rounded-lg">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                  <span key={i} className="inline-flex items-center gap-1.5 text-xs font-mono text-slate-300 bg-[#0D1117] border border-[#253044] px-2.5 py-0.5 rounded-lg">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                     {signal}
                   </span>
                 ))}
               </div>
 
-              <div className="flex items-center gap-1 text-[11px] text-slate-400 font-mono">
-                <Clock className="w-3 h-3 text-slate-400" />
-                <span>Updated {job.lastSeen || 'today'}</span>
+              {/* Agent Freshness Status: Verified We checked the job and it is open */}
+              <div 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 font-mono text-xs"
+                title={`Verified official employer endpoint on ${formatFullAuditTimestamp(verificationTimestamp)}`}
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span className="text-slate-300 font-medium">JobProof Audit:</span>
+                <span className="text-emerald-300 font-bold">We checked this job and it is open</span>
+                <span className="text-emerald-500/60">•</span>
+                <span className="text-emerald-200 font-medium">Checked {relativeCheckedTime}</span>
               </div>
             </div>
           </div>

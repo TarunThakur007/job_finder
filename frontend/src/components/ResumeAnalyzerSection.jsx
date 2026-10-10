@@ -682,47 +682,53 @@ export default function ResumeAnalyzerSection({
     return total.toFixed(1);
   }, [currentAnalysis, acceptedRecs, acceptedBullets, completedSkills]);
 
-  // Generates clean ATS-optimized resume text incorporating strictly the user's accepted suggestions
+  // Generates clean ATS-optimized resume text incorporating user's authentic details, all existing skills + added profile skills
   const generateEnhancedResumeText = () => {
     if (!currentAnalysis) return '';
-    const candidateName = (currentUser?.name && currentUser.name !== 'Guest User') ? currentUser.name : 'Alex Morgan';
-    const email = currentUser?.email || 'alex.morgan.dev@email.com';
-    const role = targetRole;
+    const candidateName = currentUser?.name?.trim() || (currentAnalysis?.name?.replace(/_Resume.*|\.pdf.*/i, '').replace(/_/g, ' ') || 'Candidate');
+    const email = currentUser?.email || 'candidate@jobproof.io';
+    const role = targetRole || currentAnalysis?.role || 'Software Engineer';
+    const location = currentUser?.location || 'India';
 
     const acceptedRecsList = (currentAnalysis.recommendations || []).filter((_, idx) => acceptedRecs.has(idx));
     const bulletsList = (currentAnalysis.bulletEnhancements || []).map((b, idx) => {
       if (acceptedBullets.has(idx)) {
-        return `• [AI STAR Optimized] ${b.improvedBullet}`;
+        return `• [STAR Impact] ${b.improvedBullet}`;
       } else {
         return `• ${b.originalBullet}`;
       }
     });
 
-    const activeSkills = [
-      ...(currentAnalysis.skills || []),
+    // Retain ALL candidate skills and incorporate added skills required for the target role
+    const existingSkills = currentAnalysis.skills || [];
+    const roleAddedSkills = [
+      ...(currentAnalysis.missingSkills || []),
+      ...(learningPlanSkills || []),
       ...Array.from(completedSkills)
-    ].filter((v, i, a) => a.indexOf(v) === i);
+    ];
+    const allCombinedSkills = Array.from(new Set([...existingSkills, ...roleAddedSkills]));
 
     return `================================================================================
 ${candidateName.toUpperCase()}
-Email: ${email} | Target Benchmark Role: ${role}
+Email: ${email}  |  Location: ${location}  |  Target Profile: ${role}
 ATS Scorecard: ${formatScoreOutOf10(currentAnalysis.atsScore)} / 10  ==>  Projected Score: ${projectedScore} / 10
 ================================================================================
 
 [PROFESSIONAL SUMMARY - TAILORED FOR ${role.toUpperCase()}]
-Results-driven ${role} with hands-on expertise building enterprise-grade architectures. Evaluated and verified against modern ATS screening criteria. Demonstrated track record in latency reduction, microservices reliability, and high-throughput system delivery.
+Accomplished ${role} with proven engineering experience building high-reliability architectures. Evaluated and structured to modern ATS screening benchmarks for ${role}. Demonstrated track record in latency reduction, distributed systems reliability, and cross-functional agile software delivery.
 
-[CORE TECHNICAL COMPETENCIES & VERIFIED SKILLS]
-${activeSkills.join('  •  ')}
+[CORE TECHNICAL COMPETENCIES & PROFILE-ALIGNED SKILLS]
+${allCombinedSkills.join('   •   ')}
 
-[PROFESSIONAL EXPERIENCE & ACHIEVEMENTS]
+[PROFESSIONAL EXPERIENCE & ACHIEVEMENTS (STAR-OPTIMIZED)]
+Role: ${role} | Engineering Operations
 ${bulletsList.join('\n\n')}
 
-[APPLIED AI STRATEGIC ENHANCEMENTS]
+[APPLIED STRATEGIC PROFILE ENHANCEMENTS]
 ${acceptedRecsList.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
 [VERIFIED PROOF-OF-WORK CAPSTONE PROJECT]
-${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Processing Platform'}
+${currentAnalysis.recommendedProject || `Enterprise High-Throughput System Architecture for ${role}`}
 `;
   };
 
@@ -732,7 +738,8 @@ ${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Proces
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(currentUser?.name || 'Candidate').replace(/\s+/g, '_')}_AI_Enhanced_Resume.txt`;
+    const safeCandidateName = (currentUser?.name || 'Candidate').replace(/\s+/g, '_');
+    link.download = `${safeCandidateName}_${(targetRole || 'Software_Engineer').replace(/\s+/g, '_')}_Enhanced_Resume.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -757,9 +764,12 @@ ${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Proces
       const contentWidth = pageWidth - (margin * 2); // 178mm
       let y = margin;
 
-      const candidateName = (currentUser?.name && currentUser.name !== 'Guest User') ? currentUser.name : 'Alex Morgan';
-      const candidateEmail = currentUser?.email || 'alex.morgan.dev@email.com';
-      const role = targetRole || 'Software Engineer';
+      // Preserve authentic candidate details without dummy placeholder overrides
+      const candidateName = currentUser?.name?.trim() || (currentAnalysis?.name?.replace(/_Resume.*|\.pdf.*/i, '').replace(/_/g, ' ') || 'Candidate');
+      const candidateEmail = currentUser?.email || 'candidate@jobproof.io';
+      const role = targetRole || currentAnalysis?.role || 'Software Engineer';
+      const candidateLocation = currentUser?.location || 'India';
+      const candidateHeadline = currentUser?.headline || currentUser?.title || role;
 
       const ensureSpace = (neededHeight) => {
         if (y + neededHeight > pageHeight - margin - 8) {
@@ -770,7 +780,7 @@ ${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Proces
         return false;
       };
 
-      // Header Block: Candidate Name
+      // Header Block: Candidate Authentic Name
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.setTextColor(17, 24, 39); // Gray 900
@@ -792,11 +802,17 @@ ${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Proces
       doc.text(atsBadge, pageWidth - margin - badgeWidth, y);
       y += 4.5;
 
-      // Contact Info row
+      // Contact Info row: Authentic candidate details (email, location, professional links)
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(107, 114, 128); // Gray 500
-      const contactInfo = `${candidateEmail}   |   linkedin.com/in/${candidateName.toLowerCase().replace(/\s+/g, '')}   |   github.com/${candidateName.toLowerCase().replace(/\s+/g, '')}`;
+      const contactElements = [
+        candidateEmail,
+        candidateLocation,
+        currentUser?.linkedin ? `linkedin.com/in/${currentUser.linkedin}` : `linkedin.com/in/${candidateName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        currentUser?.github ? `github.com/${currentUser.github}` : `github.com/${candidateName.toLowerCase().replace(/[^a-z0-9]/g, '')}`
+      ].filter(Boolean);
+      const contactInfo = contactElements.join('   |   ');
       doc.text(contactInfo, margin, y);
       y += 4;
 
@@ -831,22 +847,93 @@ ${currentAnalysis.recommendedProject || 'Enterprise High-Throughput Event Proces
       y += (summaryLines.length * 4.2) + 4.5;
 
       // 2. CORE TECHNICAL COMPETENCIES & VERIFIED SKILLS
-      printSectionHeader('Core Technical Competencies');
-      const activeSkills = [
-        ...(currentAnalysis.skills || []),
+      // Keep ALL skills candidate already has, AND include all recommended skills for this target profile
+      printSectionHeader('Core Technical Competencies (ATS-Optimized)');
+      const existingCandidateSkills = currentAnalysis.skills || [];
+      const roleRecommendedSkills = [
+        ...(currentAnalysis.missingSkills || []),
+        ...(learningPlanSkills || []),
         ...Array.from(completedSkills)
-      ].filter((v, i, a) => a.indexOf(v) === i);
+      ];
+      const allSkills = Array.from(new Set([...existingCandidateSkills, ...roleRecommendedSkills]));
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(31, 41, 55);
-      const skillsFormatted = activeSkills.join('   •   ');
-      const skillLines = doc.splitTextToSize(skillsFormatted, contentWidth);
-      doc.text(skillLines, margin, y);
-      y += (skillLines.length * 4.1) + 4.5;
+      // Group skills into ATS-friendly categories for maximum recruiter scanning clarity
+      const categories = [
+        {
+          label: 'Languages & Core Stack',
+          items: allSkills.filter(s => {
+            const l = s.toLowerCase();
+            return l.includes('java') || l.includes('python') || l.includes('c++') || l.includes('javascript') || l.includes('typescript') || l.includes('sql') || l.includes('go') || l.includes('rust') || l.includes('c#');
+          })
+        },
+        {
+          label: 'Frameworks & Architecture',
+          items: allSkills.filter(s => {
+            const l = s.toLowerCase();
+            return l.includes('spring') || l.includes('react') || l.includes('node') || l.includes('api') || l.includes('microservice') || l.includes('fastapi') || l.includes('django') || l.includes('express') || l.includes('angular') || l.includes('vue') || l.includes('next');
+          })
+        },
+        {
+          label: 'Databases & Event Systems',
+          items: allSkills.filter(s => {
+            const l = s.toLowerCase();
+            return l.includes('sql') || l.includes('postgres') || l.includes('mongo') || l.includes('redis') || l.includes('kafka') || l.includes('cassandra') || l.includes('spark') || l.includes('elasticsearch');
+          })
+        },
+        {
+          label: 'Cloud, DevOps & Tooling',
+          items: allSkills.filter(s => {
+            const l = s.toLowerCase();
+            return l.includes('docker') || l.includes('kubernetes') || l.includes('aws') || l.includes('git') || l.includes('ci/cd') || l.includes('linux') || l.includes('terraform') || l.includes('helm') || l.includes('cloud') || l.includes('azure') || l.includes('gcp');
+          })
+        }
+      ];
 
-      // 3. KEY ACHIEVEMENTS & EXPERIENCE (Incorporating accepted STAR rewrites)
-      printSectionHeader('Key Achievements & Experience (STAR-Optimized)');
+      // Any remaining skills not in the top 4 groups
+      const categorizedSet = new Set(categories.flatMap(c => c.items));
+      const remainingSkills = allSkills.filter(s => !categorizedSet.has(s));
+      if (remainingSkills.length > 0) {
+        categories.push({ label: 'Domain & Verified Tools', items: remainingSkills });
+      }
+
+      const activeCategories = categories.filter(c => c.items.length > 0);
+
+      activeCategories.forEach((cat) => {
+        ensureSpace(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(31, 41, 55);
+        const catPrefix = `${cat.label}: `;
+        doc.text(catPrefix, margin, y);
+
+        const prefixWidth = doc.getTextWidth(catPrefix);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(55, 65, 81);
+        const itemsStr = cat.items.join(', ');
+        const itemLines = doc.splitTextToSize(itemsStr, contentWidth - prefixWidth);
+        doc.text(itemLines[0], margin + prefixWidth, y);
+
+        if (itemLines.length > 1) {
+          for (let l = 1; l < itemLines.length; l++) {
+            y += 3.8;
+            doc.text(itemLines[l], margin, y);
+          }
+        }
+        y += 4.5;
+      });
+      y += 2;
+
+      // 3. KEY ACHIEVEMENTS & EXPERIENCE (Preserve all working achievements + STAR enhancements)
+      printSectionHeader('Professional Experience & Achievements (STAR-Optimized)');
+      
+      // Standard ATS Organization Role Entry
+      ensureSpace(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(17, 24, 39);
+      doc.text(`${role}  —  Core Engineering Projects`, margin, y);
+      y += 4.5;
+
       const bullets = (currentAnalysis.bulletEnhancements || []).map((b, idx) => ({
         text: acceptedBullets.has(idx) ? b.improvedBullet : b.originalBullet,
         isOptimized: acceptedBullets.has(idx)

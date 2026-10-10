@@ -2,10 +2,8 @@ import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import HeroSection from './components/HeroSection';
 import CompanyTickerSection from './components/CompanyTickerSection';
-import HowItWorksSection from './components/HowItWorksSection';
 import CategoryGridSection from './components/CategoryGridSection';
 import JobTable from './components/JobTable';
-import FeatureSpotlightSection from './components/FeatureSpotlightSection';
 import Footer from './components/Footer';
 
 // Lazy-loaded views and dialogs for code-splitting
@@ -20,6 +18,12 @@ const ShareExperienceModal = lazy(() => import('./components/ShareExperienceModa
 const ApplicationTrackerSection = lazy(() => import('./components/ApplicationTrackerSection'));
 const CandidateProfileSection = lazy(() => import('./components/CandidateProfileSection'));
 import { 
+  THEMES, 
+  getStoredPreferences, 
+  applyDisplayPreferences 
+} from './utils/themeConfig';
+
+import { 
   ShieldCheck, 
   CheckCircle2, 
   Search,
@@ -33,7 +37,12 @@ import {
   ArrowUpDown,
   RotateCcw,
   ArrowUpRight,
-  GraduationCap
+  GraduationCap,
+  AlertTriangle,
+  ShieldAlert,
+  Lock,
+  Shield,
+  MapPin
 } from 'lucide-react';
 
 function SectionLoader({ label = "Loading workspace..." }) {
@@ -193,6 +202,107 @@ const DEFAULT_FALLBACK_JOBS = [
   }
 ];
 
+const VALID_TABS = [
+  'dashboard-overview',
+  'resume-analyzer',
+  'application-tracker',
+  'experience-board',
+  'candidate-profile',
+  'employee-panel',
+  'admin-panel',
+  'login'
+];
+
+function getTabFromUrl() {
+  try {
+    // 1. Check query parameter e.g. ?tab=resume-analyzer
+    if (typeof window !== 'undefined' && window.location) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const queryTab = searchParams.get('tab') || searchParams.get('page') || searchParams.get('view');
+      if (queryTab) {
+        const q = queryTab.toLowerCase().trim();
+        if (q === 'employee-control' || q === 'employee' || q === 'recruiter') return 'employee-panel';
+        if (q === 'jobs' || q === 'home' || q === 'explore' || q === 'dashboard') return 'dashboard-overview';
+        if (q === 'resume' || q === 'ai-resume') return 'resume-analyzer';
+        if (q === 'tracker' || q === 'applications') return 'application-tracker';
+        if (q === 'reviews' || q === 'experiences') return 'experience-board';
+        if (q === 'profile') return 'candidate-profile';
+        if (q === 'admin' || q === 'team') return 'admin-panel';
+        if (VALID_TABS.includes(q)) return q;
+      }
+
+      // 2. Check hash e.g. #resume-analyzer or #/resume-analyzer
+      const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim().toLowerCase();
+      if (rawHash) {
+        if (rawHash === 'employee-control' || rawHash === 'employee' || rawHash === 'employee-panel' || rawHash === 'recruiter') return 'employee-panel';
+        if (rawHash === 'jobs' || rawHash === 'dashboard-overview' || rawHash === 'explore' || rawHash === 'home') return 'dashboard-overview';
+        if (rawHash === 'resume' || rawHash === 'resume-analyzer' || rawHash === 'ai-resume') return 'resume-analyzer';
+        if (rawHash === 'tracker' || rawHash === 'application-tracker' || rawHash === 'applications') return 'application-tracker';
+        if (rawHash === 'reviews' || rawHash === 'experience-board' || rawHash === 'experiences') return 'experience-board';
+        if (rawHash === 'profile' || rawHash === 'candidate-profile') return 'candidate-profile';
+        if (rawHash === 'admin' || rawHash === 'admin-panel' || rawHash === 'team') return 'admin-panel';
+        if (rawHash === 'login' || rawHash === 'register' || rawHash === 'auth') return 'login';
+        if (VALID_TABS.includes(rawHash)) return rawHash;
+      }
+
+      // 3. Check pathname e.g. /resume-analyzer or /jobs
+      const path = (window.location.pathname || '').trim().toLowerCase();
+      if (!path || path === '/' || path === '/index.html') {
+        return 'dashboard-overview';
+      }
+
+      const cleanPath = path.replace(/^\/+|\/+$/g, '');
+      if (!cleanPath) return 'dashboard-overview';
+
+      if (cleanPath === 'jobs' || cleanPath === 'dashboard' || cleanPath === 'dashboard-overview' || cleanPath === 'explore' || cleanPath === 'home') {
+        return 'dashboard-overview';
+      }
+      if (cleanPath === 'resume-analyzer' || cleanPath === 'resume' || cleanPath === 'ai-resume') {
+        return 'resume-analyzer';
+      }
+      if (cleanPath === 'application-tracker' || cleanPath === 'tracker' || cleanPath === 'applications') {
+        return 'application-tracker';
+      }
+      if (cleanPath === 'experience-board' || cleanPath === 'reviews' || cleanPath === 'experiences') {
+        return 'experience-board';
+      }
+      if (cleanPath === 'candidate-profile' || cleanPath === 'profile') {
+        return 'candidate-profile';
+      }
+      if (cleanPath === 'employee-panel' || cleanPath === 'employee' || cleanPath === 'employee-control' || cleanPath === 'recruiter') {
+        return 'employee-panel';
+      }
+      if (cleanPath === 'admin-panel' || cleanPath === 'admin' || cleanPath === 'team' || cleanPath === 'team-management') {
+        return 'admin-panel';
+      }
+      if (cleanPath === 'login' || cleanPath === 'register' || cleanPath === 'auth') {
+        return 'login';
+      }
+
+      // Any unrecognized path smoothly defaults to dashboard-overview
+      return 'dashboard-overview';
+    }
+    return null;
+  } catch (e) {
+    return 'dashboard-overview';
+  }
+}
+
+function getUrlForTab(tab) {
+  switch (tab) {
+    case 'dashboard-overview': return '/';
+    case 'resume-analyzer': return '/resume-analyzer';
+    case 'application-tracker': return '/application-tracker';
+    case 'experience-board': return '/experience-board';
+    case 'candidate-profile': return '/candidate-profile';
+    case 'employee-panel':
+    case 'employee-control': return '/employee-panel';
+    case 'admin-panel': return '/admin-panel';
+    case 'login': return '/login';
+    default: return '/';
+  }
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -204,72 +314,77 @@ export default function App() {
         }
         return parsed;
       }
-      return {
-        name: 'Tarun Pratap Singh',
-        headline: 'Java Backend Developer',
-        email: 'tarun.pratap@jobradar.io',
-        role: 'ROLE_USER',
-        isDemo: true,
-        title: 'Java Backend Developer',
-        avatar: '/tarun-avatar.jpg',
-        panel: 'user'
-      };
+      return null;
     } catch (e) {
-      return {
-        name: 'Tarun Pratap Singh',
-        headline: 'Java Backend Developer',
-        email: 'tarun.pratap@jobradar.io',
-        role: 'ROLE_USER',
-        isDemo: true,
-        title: 'Java Backend Developer',
-        avatar: '/tarun-avatar.jpg',
-        panel: 'user'
-      };
+      return null;
     }
   });
 
   const [initialIsSignUp, setInitialIsSignUp] = useState(false);
   const [authMessage, setAuthMessage] = useState(null);
+  const [authPanel, setAuthPanel] = useState('user');
 
-  // Theme Mode: Dark (Default) / Light
+  // Display Preferences Engine (Theme, Accent, Density, Typography)
+  const [displayPreferences, setDisplayPreferences] = useState(() => getStoredPreferences());
+
+  // Sync theme string for dark/light class switches
   const [theme, setTheme] = useState(() => {
-    try {
-      return localStorage.getItem('jobproof_theme') || 'dark';
-    } catch (e) {
-      return 'dark';
-    }
+    const prefs = getStoredPreferences();
+    return prefs.theme === 'light' ? 'light' : 'dark';
   });
 
   useEffect(() => {
-    try {
-      const root = document.documentElement;
-      const body = document.body;
-      if (theme === 'dark') {
-        root.classList.add('dark');
-        root.classList.remove('light');
-        body.classList.add('dark');
-        body.classList.remove('light');
-      } else {
-        root.classList.add('light');
-        root.classList.remove('dark');
-        body.classList.add('light');
-        body.classList.remove('dark');
-      }
-      root.setAttribute('data-theme', theme);
-      body.setAttribute('data-theme', theme);
-      localStorage.setItem('jobproof_theme', theme);
-    } catch (e) {}
-  }, [theme]);
+    applyDisplayPreferences(displayPreferences);
+    setTheme(displayPreferences.theme === 'light' ? 'light' : 'dark');
+  }, [displayPreferences]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+    setDisplayPreferences(prev => {
+      const nextTheme = prev.theme === 'light' ? 'dark' : 'light';
+      return { ...prev, theme: nextTheme };
+    });
+  };
+
+  const cycleTheme = () => {
+    toggleTheme();
   };
 
   const [activeTab, setActiveTab] = useState(() => {
+    const urlTab = getTabFromUrl();
+    if (urlTab) return urlTab;
     if (currentUser?.role === 'ROLE_ADMIN') return 'admin-panel';
     if (currentUser?.role === 'ROLE_EMPLOYEE') return 'employee-panel';
     return 'dashboard-overview';
   });
+
+  const handleNavigateTab = (tab, pushState = true) => {
+    const normalizedTab = (tab === 'employee-control' || tab === 'employee') ? 'employee-panel' : tab;
+    setActiveTab(normalizedTab);
+    if (pushState && typeof window !== 'undefined' && window.history?.pushState) {
+      const targetUrl = getUrlForTab(normalizedTab);
+      if (window.location.pathname !== targetUrl) {
+        window.history.pushState({ tab: normalizedTab }, '', targetUrl);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const targetTab = getTabFromUrl() || (
+        currentUser?.role === 'ROLE_ADMIN' ? 'admin-panel' :
+        currentUser?.role === 'ROLE_EMPLOYEE' ? 'employee-panel' : 'dashboard-overview'
+      );
+      setActiveTab(targetTab);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, [currentUser]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
@@ -293,9 +408,47 @@ export default function App() {
   // Job Discovery Multi-Filter States
   const [filterExperience, setFilterExperience] = useState('ALL'); // 'ALL' | 'ENTRY' | 'MID' | 'SENIOR' | 'LEAD'
   const [filterJobType, setFilterJobType] = useState('ALL'); // 'ALL' | 'FULLTIME' | 'CONTRACT' | 'PART_TIME' | 'INTERNSHIP'
+  const [filterLocation, setFilterLocation] = useState('ALL'); // India Tech Hubs only
   const [filterRemoteOnly, setFilterRemoteOnly] = useState(false);
   const [filterMatchedOnly, setFilterMatchedOnly] = useState(false);
   const [sortBy, setSortBy] = useState('TRUST'); // 'TRUST' | 'NEWEST'
+
+  const matchesIndiaLocation = (jobLoc, target) => {
+    if (!target || target === 'ALL') return true;
+    const l = (jobLoc || '').toLowerCase().trim();
+    const t = target.toLowerCase().trim();
+    if (t === 'remote') {
+      return l.includes('remote') || l.includes('wfh') || l.includes('work from home') || l.includes('anywhere');
+    }
+    if (t === 'bengaluru' || t === 'bangalore') {
+      return l.includes('bengaluru') || l.includes('bangalore');
+    }
+    if (t === 'delhi ncr' || t === 'delhi' || t === 'ncr') {
+      return l.includes('delhi') || l.includes('noida') || l.includes('gurgaon') || l.includes('gurugram') || l.includes('ncr');
+    }
+    if (t === 'mumbai') {
+      return l.includes('mumbai') || l.includes('navi mumbai') || l.includes('thane');
+    }
+    if (t === 'hyderabad') {
+      return l.includes('hyderabad') || l.includes('secunderabad');
+    }
+    if (t === 'pune') {
+      return l.includes('pune');
+    }
+    if (t === 'chennai') {
+      return l.includes('chennai');
+    }
+    if (t === 'kolkata') {
+      return l.includes('kolkata') || l.includes('calcutta');
+    }
+    if (t === 'ahmedabad') {
+      return l.includes('ahmedabad');
+    }
+    if (t === 'jaipur') {
+      return l.includes('jaipur');
+    }
+    return l.includes(t);
+  };
 
   // User Dismissed/Removed Closed Jobs (persisted across sessions)
   const [userRemovedJobIds, setUserRemovedJobIds] = useState(() => {
@@ -403,6 +556,16 @@ export default function App() {
     fetchJobs();
   };
 
+  // Called when an AI agent or employee updates/audits a job: keeps all state in sync
+  const handleJobUpdated = (updatedJob) => {
+    if (!updatedJob || !updatedJob.id) return;
+    setAllDatabaseJobs((prev) => prev.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j));
+    setLiveJobs((prev) => prev.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j));
+    if (selectedJob && selectedJob.id === updatedJob.id) {
+      setSelectedJob((prev) => ({ ...prev, ...updatedJob }));
+    }
+  };
+
   // Employee closes an active job (removes it from User page and moves it to Employee Closed list)
   const handleEmployeeCloseJob = async (jobId) => {
     try {
@@ -439,21 +602,37 @@ export default function App() {
     fetchJobs();
   };
 
-  useEffect(() => {
+  const checkBackendHealth = () => {
+    setHealthStatus(prev => ({ ...prev, loading: true }));
     fetch(`${apiBase}/api/health`)
       .then((res) => {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('text/html') || !res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data) => setHealthStatus({ loading: false, data, error: null }))
-      .catch((err) => setHealthStatus({ 
-        loading: false, 
-        data: { status: 'UP', service: 'JobRadar AI Cloud Interface' }, 
-        error: null 
-      }));
+      .then((data) => {
+        setHealthStatus({ loading: false, live: true, data, error: null });
+      })
+      .catch((err) => {
+        console.warn('Backend API connection check failed:', err);
+        setHealthStatus({ 
+          loading: false, 
+          live: false, 
+          data: null, 
+          error: 'Spring Boot API server is unreachable on port 8081' 
+        });
+      });
+  };
 
+  useEffect(() => {
+    checkBackendHealth();
     fetchJobs();
+
+    // Periodic sync: refreshes jobs every 60 seconds so background audits automatically reflect updated check timestamps
+    const syncTimer = setInterval(() => {
+      fetchJobs();
+    }, 60000);
+    return () => clearInterval(syncTimer);
   }, []);
 
   useEffect(() => {
@@ -469,7 +648,9 @@ export default function App() {
     const unique = [];
     for (const j of source) {
       if (!j) continue;
-      const compName = typeof j.company === 'object' ? j.company?.name : j.company || '';
+      const compName = (typeof j.company === 'object' && j.company !== null) 
+        ? (j.company.name || '') 
+        : (typeof j.company === 'string' ? j.company : '');
       const key = `${(j.title || '').trim().toLowerCase()}::${compName.trim().toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -485,7 +666,9 @@ export default function App() {
       .filter((job) => !userRemovedJobIds.includes(job.id))
       .filter((job) => !job.isClosed && job.verificationStatus !== 'CLOSED' && job.status !== 'CLOSED')
       .filter((job) => {
-        const compName = typeof job.company === 'object' ? job.company.name : job.company;
+        const compName = (typeof job.company === 'object' && job.company !== null) 
+          ? (job.company.name || '') 
+          : (typeof job.company === 'string' ? job.company : '');
         const title = (job.title || '').toLowerCase();
         const location = (job.location || '').toLowerCase();
         const role = (job.role || '').toLowerCase();
@@ -577,6 +760,13 @@ export default function App() {
           }
         }
 
+        // 7. Location Filter (India Locations Only)
+        if (filterLocation !== 'ALL') {
+          if (!matchesIndiaLocation(location, filterLocation)) {
+            return false;
+          }
+        }
+
         return true;
       }).sort((a, b) => {
         if (sortBy === 'NEWEST') {
@@ -588,7 +778,18 @@ export default function App() {
         const scoreB = b.score || b.trustScore || 90;
         return scoreB - scoreA;
       });
-  }, [jobsToDisplay, userRemovedJobIds, debouncedSearchTerm, selectedCategory, filterRemoteOnly, filterJobType, filterExperience, filterMatchedOnly, candidateProfileSkills, candidateProfileRole, sortBy]);
+  }, [jobsToDisplay, userRemovedJobIds, debouncedSearchTerm, selectedCategory, filterRemoteOnly, filterJobType, filterExperience, filterLocation, filterMatchedOnly, candidateProfileSkills, candidateProfileRole, sortBy]);
+
+  // Jobs are only shown when user searches, picks a company, role, tag, or category
+  const hasSearched = Boolean(
+    (searchTerm && searchTerm.trim().length > 0) ||
+    selectedCategory ||
+    filterMatchedOnly ||
+    (filterLocation && filterLocation !== 'ALL') ||
+    filterRemoteOnly ||
+    (filterJobType && filterJobType !== 'ALL') ||
+    (filterExperience && filterExperience !== 'ALL')
+  );
 
   const handleLoginSuccess = (userPayload) => {
     setCurrentUser(userPayload);
@@ -606,10 +807,11 @@ export default function App() {
     } catch (e) {}
   };
 
-  const handleLogout = () => {
+  const handleLogout = (targetPanel = 'user') => {
     setCurrentUser(null);
     setInitialIsSignUp(false);
     setAuthMessage(null);
+    setAuthPanel(targetPanel);
     try {
       localStorage.removeItem('jobproof_user');
     } catch (e) {}
@@ -621,11 +823,28 @@ export default function App() {
       localStorage.removeItem('jobproof_user');
     } catch (e) {}
     setInitialIsSignUp(true);
+    setAuthPanel('user');
     setAuthMessage(reason || 'Registration is required to access this feature. Please create your free candidate account to unlock full access.');
   };
 
+  const handleOpenLogin = () => {
+    setInitialIsSignUp(false);
+    setAuthMessage(null);
+    setAuthPanel('user');
+    handleNavigateTab('login');
+  };
+
+  const handleOpenRegister = () => {
+    setInitialIsSignUp(true);
+    setAuthMessage('Create your free candidate account to unlock direct applications and verified jobs.');
+    setAuthPanel('user');
+    handleNavigateTab('login');
+  };
+
   const handleApplyJob = (job) => {
-    const compName = typeof job.company === 'object' ? job.company.name : job.company;
+    const compName = (typeof job.company === 'object' && job.company !== null) 
+      ? (job.company.name || 'Verified Employer') 
+      : (typeof job.company === 'string' ? job.company : 'Verified Employer');
     if (currentUser?.isDemo) {
       handleRequireRegistration(`Registration is required to apply for "${job.title}" at ${compName}. Please create your free candidate account to unlock direct company applications.`);
       return;
@@ -672,8 +891,11 @@ export default function App() {
     setShowPostJobModal(true);
   };
 
-  const handleHeroSearch = (queryTitle, queryType) => {
+  const handleHeroSearch = (queryTitle, queryType, queryLocation) => {
     setSearchTerm(queryTitle || '');
+    if (queryLocation) {
+      setFilterLocation(queryLocation);
+    }
     if (queryType) {
       const lower = queryType.toLowerCase();
       if (lower.includes('remote')) {
@@ -701,6 +923,18 @@ export default function App() {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 100);
+  };
+
+  const handleSelectCompany = (companyName) => {
+    setActiveTab('dashboard-overview');
+    setSelectedCategory(null);
+    handleHeroSearch(companyName);
+  };
+
+  const handleSelectRole = (roleTitle) => {
+    setActiveTab('dashboard-overview');
+    setSelectedCategory(null);
+    handleHeroSearch(roleTitle);
   };
 
   const handlePostJobSubmit = (e) => {
@@ -775,7 +1009,7 @@ export default function App() {
               onLoginSuccess={handleLoginSuccess}
               initialIsSignUp={initialIsSignUp}
               initialMessage={authMessage}
-              initialPanel="user"
+              initialPanel={authPanel}
             />
           </Suspense>
         </div>
@@ -813,17 +1047,22 @@ export default function App() {
             handleRequireRegistration("Application Tracker requires a candidate account. Please register to track your applications.");
             return;
           }
-          setActiveTab(tab);
+          handleNavigateTab(tab);
         }}
         healthStatus={healthStatus}
         currentUser={currentUser}
         onLogout={handleLogout}
-        onLoginClick={() => {}}
+        onLoginClick={handleOpenLogin}
+        onRegisterClick={handleOpenRegister}
         onPostJobClick={handleOpenPostJob}
         onRequireRegistration={handleRequireRegistration}
         onUpdateUser={setCurrentUser}
         theme={theme}
         toggleTheme={toggleTheme}
+        displayPreferences={displayPreferences}
+        onCycleTheme={cycleTheme}
+        onSelectCompany={handleSelectCompany}
+        onSelectRole={handleSelectRole}
       />
 
       {/* Primary Accessible Main Landmark */}
@@ -982,29 +1221,112 @@ export default function App() {
 
       {/* MAIN VIEW CONTROLLER: Role workspaces accessible when selected */}
       <Suspense fallback={<SectionLoader label="Loading workspace..." />}>
-        {activeTab === 'admin-panel' && currentUser?.role === 'ROLE_ADMIN' ? (
-        <div className="max-w-7xl mx-auto py-8 px-4">
-          <TeamManagementPage 
-            currentUser={currentUser} 
-            liveJobs={jobsToDisplay}
-            onSelectView={(view) => setActiveTab(view)} 
-            onUpdateUser={(updated) => setCurrentUser(updated)}
-            onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
-          />
-        </div>
-      ) : activeTab === 'employee-panel' && (currentUser?.role === 'ROLE_EMPLOYEE' || currentUser?.role === 'ROLE_ADMIN' || (currentUser?.permissions && currentUser.permissions.length > 0)) ? (
-        <div className="max-w-7xl mx-auto py-8 px-4">
-          <EmployeeControlSection 
-            liveJobs={jobsToDisplay} 
-            allJobs={allDatabaseJobs.length > 0 ? allDatabaseJobs : liveJobs}
-            currentUser={currentUser} 
-            onPostJobClick={() => setShowPostJobModal(true)}
-            onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
-            onSelectView={(view) => setActiveTab(view)}
-            onJobApproved={handleJobApproved}
-            onCloseJob={handleEmployeeCloseJob}
-            onReopenJob={handleEmployeeReopenJob}
-            onDeleteJob={handleEmployeeDeleteJob}
+        {activeTab === 'admin-panel' ? (
+          currentUser?.role === 'ROLE_ADMIN' ? (
+            <div className="max-w-7xl mx-auto py-8 px-4">
+              <TeamManagementPage 
+                currentUser={currentUser} 
+                liveJobs={jobsToDisplay}
+                onSelectView={(view) => handleNavigateTab(view)} 
+                onUpdateUser={(updated) => setCurrentUser(updated)}
+                onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
+              />
+            </div>
+          ) : (
+            <div className="max-w-2xl mx-auto py-16 px-4 animate-fadeIn">
+              <div className="bg-[#141922] border border-amber-500/30 rounded-3xl p-8 sm:p-10 text-center shadow-2xl relative overflow-hidden">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <ShieldAlert className="w-8 h-8" />
+                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                  403 Access Forbidden • Platform Administrator Only
+                </span>
+                <h2 className="text-2xl font-bold text-white mt-4">
+                  Admin Console Access Restricted
+                </h2>
+                <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+                  You are currently signed in as <strong className="text-white font-mono">{currentUser?.email}</strong> with role <span className="text-amber-400 font-bold">{currentUser?.role || 'ROLE_USER'}</span>. This workspace is strictly restricted to Platform Administrators. Candidate and Employer accounts cannot enter.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+                  <button
+                    onClick={() => {
+                      handleLogout('admin');
+                      handleNavigateTab('login');
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs transition shadow-lg active:scale-95 flex items-center gap-2"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    <span>Sign In with Administrator Account</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateTab(currentUser?.role === 'ROLE_EMPLOYEE' ? 'employee-panel' : 'dashboard-overview')}
+                    className="px-5 py-2.5 rounded-xl bg-[#1d2432] hover:bg-[#263144] border border-[#303e55] text-white font-bold text-xs transition"
+                  >
+                    {currentUser?.role === 'ROLE_EMPLOYEE' ? 'Return to Employer Portal' : 'Return to Candidate Jobs'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+      ) : (activeTab === 'employee-panel' || activeTab === 'employee-control') ? (
+          currentUser?.role === 'ROLE_EMPLOYEE' ? (
+            <div className="max-w-7xl mx-auto py-8 px-4">
+              <EmployeeControlSection 
+                liveJobs={jobsToDisplay} 
+                allJobs={allDatabaseJobs.length > 0 ? allDatabaseJobs : liveJobs}
+                currentUser={currentUser} 
+                onPostJobClick={() => setShowPostJobModal(true)}
+                onLoginAsEmployee={(empUser) => setCurrentUser(empUser)}
+                onSelectView={(view) => handleNavigateTab(view)}
+                onJobApproved={handleJobApproved}
+                onCloseJob={handleEmployeeCloseJob}
+                onReopenJob={handleEmployeeReopenJob}
+                onDeleteJob={handleEmployeeDeleteJob}
+              />
+            </div>
+          ) : (
+            <div className="max-w-2xl mx-auto py-16 px-4 animate-fadeIn">
+              <div className="bg-[#141922] border border-teal-500/30 rounded-3xl p-8 sm:p-10 text-center shadow-2xl relative overflow-hidden">
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center">
+                  <Lock className="w-8 h-8" />
+                </div>
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-teal-500/15 text-teal-300 border border-teal-500/30">
+                  403 Access Forbidden • Employer & Recruiter Only
+                </span>
+                <h2 className="text-2xl font-bold text-white mt-4">
+                  Employer Portal Access Restricted
+                </h2>
+                <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto leading-relaxed">
+                  You are currently signed in as <strong className="text-white font-mono">{currentUser?.email}</strong> with role <span className="text-teal-400 font-bold">{currentUser?.role || 'ROLE_USER'}</span>. Only verified company recruiters and employers may post vacancies and manage candidates.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
+                  <button
+                    onClick={() => {
+                      handleLogout('employee');
+                      handleNavigateTab('login');
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs transition shadow-lg active:scale-95 flex items-center gap-2"
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Sign In with Employer Account</span>
+                  </button>
+                  <button
+                    onClick={() => handleNavigateTab(currentUser?.role === 'ROLE_ADMIN' ? 'admin-panel' : 'dashboard-overview')}
+                    className="px-5 py-2.5 rounded-xl bg-[#1d2432] hover:bg-[#263144] border border-[#303e55] text-white font-bold text-xs transition"
+                  >
+                    {currentUser?.role === 'ROLE_ADMIN' ? 'Return to Admin Console' : 'Return to Candidate Jobs'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+      ) : activeTab === 'login' ? (
+        <div className="max-w-md mx-auto py-12 px-4">
+          <LoginView 
+            onLoginSuccess={handleLoginSuccess}
+            initialIsSignUp={initialIsSignUp}
+            initialMessage={authMessage}
+            initialPanel={authPanel}
           />
         </div>
       ) : activeTab === 'candidate-profile' ? (
@@ -1012,7 +1334,7 @@ export default function App() {
           <CandidateProfileSection 
             currentUser={currentUser}
             onUpdateUser={(updated) => setCurrentUser(updated)}
-            setActiveTab={setActiveTab}
+            setActiveTab={(view) => handleNavigateTab(view)}
             onRequireRegistration={handleRequireRegistration}
           />
         </Suspense>
@@ -1026,7 +1348,7 @@ export default function App() {
             onApplyJob={(job) => setApplyingJob(job)}
             onExploreMatchingJobs={() => {
               setFilterMatchedOnly(true);
-              setActiveTab('dashboard-overview');
+              handleNavigateTab('dashboard-overview');
               setTimeout(() => {
                 const el = document.getElementById('sticky-job-filter-header');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -1052,7 +1374,7 @@ export default function App() {
           />
         </div>
       ) : (
-        /* HOMEPAGE */
+        /* DEFAULT VIEW: ALWAYS LIVE JOBS HOMEPAGE */
         <div className="homepage-content">
           {/* 1. HERO SECTION */}
           <div id="hero-section">
@@ -1075,12 +1397,7 @@ export default function App() {
             <CompanyTickerSection />
           </div>
 
-          {/* 3. HOW IT WORKS 4-STEP PIPELINE */}
-          <div id="how-it-works-section">
-            <HowItWorksSection />
-          </div>
-
-          {/* 4. BROWSE JOB CATEGORY GRID */}
+          {/* 3. BROWSE JOB CATEGORY GRID */}
           <div id="categories-section">
             <CategoryGridSection 
               jobs={jobsToDisplay}
@@ -1097,24 +1414,53 @@ export default function App() {
             />
           </div>
 
-          {/* 4. VERIFIED LIVE JOBS LISTINGS & MULTI-CRITERIA DISCOVERY HUB */}
+          {/* 4. VERIFIED LIVE JOBS LISTINGS & SEARCH HUB */}
           <section id="job-listings-section" className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-5 scroll-mt-20">
-            
-            {/* Section Header */}
-            <div className="space-y-1.5 pb-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#141922] border border-teal-500/30 text-teal-400 text-xs font-mono font-medium shadow-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>DIRECT APPLICATION PIPELINE • ZERO RECRUITER SPAM</span>
+            {!hasSearched ? (
+              /* CLEAN, MINIMAL SEARCH PROMPT STATE (When user hasn't searched yet - jobs only come upon search) */
+              <div className="py-16 px-6 text-center max-w-3xl mx-auto space-y-6 bg-[#0E131F]/60 border border-[#253044]/80 rounded-3xl backdrop-blur-md shadow-2xl">
+                <div className="w-16 h-16 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center mx-auto text-teal-400 shadow-lg shadow-teal-500/10">
+                  <Search className="w-8 h-8" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    Search to View Verified Jobs
+                  </h3>
+                  <p className="text-slate-400 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">
+                    Search by role, company, or tech stack above, or select from top companies in the header to view verified live requisitions.
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium mr-1">Trending Searches:</span>
+                  {['Google', 'Software Engineer', 'Full Stack', 'Microsoft', 'Backend', 'Amazon', 'DevOps', 'Remote', 'Swiggy', 'Razorpay'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleHeroSearch(tag)}
+                      className="px-3.5 py-1.5 rounded-full bg-[#162032] hover:bg-teal-500/15 border border-[#253044] hover:border-teal-400/50 text-xs text-slate-300 hover:text-white transition-all font-medium active:scale-95 shadow-sm"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  Verified <span className="text-teal-400">Live Requisitions</span>
-                </h2>
-                <p className="text-slate-400 text-xs sm:text-sm font-mono">
-                  Showing {filteredJobs.length} of {jobsToDisplay.length} openings. Direct to company official careers portal.
-                </p>
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Section Header */}
+                <div className="space-y-1.5 pb-1">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#141922] border border-teal-500/30 text-teal-400 text-xs font-mono font-medium shadow-sm">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>DIRECT APPLICATION PIPELINE • ZERO RECRUITER SPAM</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                      Verified <span className="text-teal-400">Search Results</span>
+                    </h2>
+                    <p className="text-slate-400 text-xs sm:text-sm font-mono">
+                      Showing {filteredJobs.length} of {jobsToDisplay.length} openings matching your search criteria. Direct to company official careers portal.
+                    </p>
+                  </div>
+                </div>
 
             {/* STICKY JOB FILTERING & SEARCH HEADER BAR */}
             {/* Stays pinned right under the main header (top-16) as you browse and search */}
@@ -1226,6 +1572,36 @@ export default function App() {
                       </select>
                     </div>
 
+                    {/* India Location Filter */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono text-slate-400 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-teal-400" />
+                        Location:
+                      </span>
+                      <select
+                        aria-label="Filter by Location (India Only)"
+                        value={filterLocation}
+                        onChange={(e) => setFilterLocation(e.target.value)}
+                        className={`px-3 py-2 rounded-xl text-xs font-medium border transition focus:outline-none cursor-pointer ${
+                          filterLocation !== 'ALL'
+                            ? 'bg-[#1A2230] border-teal-500/50 text-teal-300 font-semibold'
+                            : 'bg-[#141922] border-[#253044] text-slate-300 hover:text-white'
+                        }`}
+                      >
+                        <option value="ALL" className="bg-[#141922] text-white">All India Locations</option>
+                        <option value="Remote" className="bg-[#141922] text-white">🌐 Remote (India)</option>
+                        <option value="Bengaluru" className="bg-[#141922] text-white">🏙️ Bengaluru</option>
+                        <option value="Hyderabad" className="bg-[#141922] text-white">🏙️ Hyderabad</option>
+                        <option value="Pune" className="bg-[#141922] text-white">🏙️ Pune</option>
+                        <option value="Delhi NCR" className="bg-[#141922] text-white">🏙️ Delhi NCR</option>
+                        <option value="Mumbai" className="bg-[#141922] text-white">🏙️ Mumbai</option>
+                        <option value="Chennai" className="bg-[#141922] text-white">🏙️ Chennai</option>
+                        <option value="Kolkata" className="bg-[#141922] text-white">🏙️ Kolkata</option>
+                        <option value="Ahmedabad" className="bg-[#141922] text-white">🏙️ Ahmedabad</option>
+                        <option value="Jaipur" className="bg-[#141922] text-white">🏙️ Jaipur</option>
+                      </select>
+                    </div>
+
                     {/* Remote Only Toggle */}
                     <button
                       onClick={() => setFilterRemoteOnly(!filterRemoteOnly)}
@@ -1266,12 +1642,23 @@ export default function App() {
                 </div>
 
                 {/* Active Filter Tags & Quick Reset Row */}
-                {(searchTerm || selectedCategory || filterExperience !== 'ALL' || filterJobType !== 'ALL' || filterRemoteOnly || filterMatchedOnly) && (
+                {(searchTerm || selectedCategory || filterExperience !== 'ALL' || filterJobType !== 'ALL' || filterLocation !== 'ALL' || filterRemoteOnly || filterMatchedOnly) && (
                   <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#253044] text-xs">
-                    <span className="text-slate-400 font-mono text-[11px] mr-1 flex items-center gap-1">
+                    <span className="text-slate-400 font-mono text-xs mr-1 flex items-center gap-1">
                       <SlidersHorizontal className="w-3 h-3 text-teal-400" />
                       Active:
                     </span>
+
+                    {filterLocation !== 'ALL' && (
+                      <button
+                        onClick={() => setFilterLocation('ALL')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1A2230] border border-teal-500/40 text-teal-300 font-mono text-xs hover:border-teal-400 transition"
+                      >
+                        <MapPin className="w-3 h-3 text-teal-400" />
+                        <span>Location: {filterLocation}</span>
+                        <X className="w-3 h-3 text-slate-400 hover:text-white" />
+                      </button>
+                    )}
 
                     {filterMatchedOnly && (
                       <button
@@ -1348,6 +1735,7 @@ export default function App() {
                         setSelectedCategory(null);
                         setFilterExperience('ALL');
                         setFilterJobType('ALL');
+                        setFilterLocation('ALL');
                         setFilterRemoteOnly(false);
                         setFilterMatchedOnly(false);
                         setSortBy('TRUST');
@@ -1379,7 +1767,7 @@ export default function App() {
                           {selectedCategory && (
                             <span>in <span className="text-teal-400">"{selectedCategory}"</span></span>
                           )}
-                          <span className="text-slate-400 text-[11px] font-normal">
+                          <span className="text-slate-400 text-xs font-normal">
                             ({filteredJobs.length} of {jobsToDisplay.length} total live jobs)
                           </span>
                         </p>
@@ -1410,33 +1798,17 @@ export default function App() {
               onClearSearch={() => {
                 setSearchTerm('');
                 setSelectedCategory(null);
+                setFilterMatchedOnly(false);
+                setFilterJobType('ALL');
+                setFilterLocation('ALL');
+                setFilterRemoteOnly(false);
+                setFilterExperience('ALL');
               }}
+              onJobUpdated={handleJobUpdated}
             />
+            </>
+          )}
           </section>
-
-          {/* 5. FEATURE SPOTLIGHT & EMPLOYER CTA */}
-          <div id="features-section">
-            <FeatureSpotlightSection 
-              onNavigateResume={() => {
-                setActiveTab('resume-analyzer');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateExperience={() => {
-                setActiveTab('experience-board');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onPostJobClick={() => {
-                if (currentUser?.role === 'EMPLOYEE' || currentUser?.role === 'ADMIN') {
-                  setActiveTab('employee-control');
-                } else {
-                  setInitialIsSignUp(true);
-                  setAuthMessage('Please sign in or register as an Employer to post verified jobs.');
-                  setActiveTab('login');
-                }
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-          </div>
         </div>
       )}
       </Suspense>
@@ -1451,6 +1823,7 @@ export default function App() {
             onApply={handleApplyJob}
             currentUser={currentUser}
             onRequireRegistration={handleRequireRegistration}
+            onJobUpdated={handleJobUpdated}
           />
         )}
 
@@ -1461,7 +1834,9 @@ export default function App() {
             currentUser={currentUser}
             onClose={() => setApplyingJob(null)}
             onApplicationSubmitted={(appData) => {
-              const compName = typeof applyingJob.company === 'object' ? applyingJob.company.name : applyingJob.company;
+              const compName = (typeof applyingJob.company === 'object' && applyingJob.company !== null) 
+                ? (applyingJob.company.name || 'Verified Employer') 
+                : (typeof applyingJob.company === 'string' ? applyingJob.company : 'Verified Employer');
               const trackedRecord = {
                 id: appData?.id || Date.now(),
                 companyName: compName || 'Verified Employer',
@@ -1502,18 +1877,16 @@ export default function App() {
       <div id="footer-section">
         <Footer 
           onNavigateTab={(tab) => {
-            setActiveTab(tab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleNavigateTab(tab);
           }}
           onPostJobClick={() => {
             if (currentUser?.role === 'EMPLOYEE' || currentUser?.role === 'ADMIN') {
-              setActiveTab('employee-control');
+              handleNavigateTab('employee-panel');
             } else {
               setInitialIsSignUp(true);
               setAuthMessage('Please sign in or register as an Employer to post verified jobs.');
-              setActiveTab('login');
+              handleNavigateTab('login');
             }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
       </div>
@@ -1524,8 +1897,7 @@ export default function App() {
       <nav aria-label="Mobile navigation" className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-surface-canvas/95 backdrop-blur-md border-t border-border-subtle z-40 flex items-center justify-around px-2 shadow-lg">
         <button
           onClick={() => {
-            setActiveTab('dashboard-overview');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleNavigateTab('dashboard-overview');
           }}
           className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 text-[10px] font-medium transition-colors ${
             activeTab === 'dashboard-overview' ? 'text-accent-functional font-bold' : 'text-ink-secondary hover:text-ink-primary'
@@ -1541,8 +1913,7 @@ export default function App() {
               handleRequireRegistration("Create an account to analyze your resume.");
               return;
             }
-            setActiveTab('resume-analyzer');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleNavigateTab('resume-analyzer');
           }}
           className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 text-[10px] font-medium transition-colors ${
             activeTab === 'resume-analyzer' ? 'text-accent-functional font-bold' : 'text-ink-secondary hover:text-ink-primary'
@@ -1558,8 +1929,7 @@ export default function App() {
               handleRequireRegistration("Create an account to track your applications.");
               return;
             }
-            setActiveTab('application-tracker');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleNavigateTab('application-tracker');
           }}
           className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 text-[10px] font-medium transition-colors ${
             activeTab === 'application-tracker' ? 'text-accent-functional font-bold' : 'text-ink-secondary hover:text-ink-primary'
@@ -1571,8 +1941,7 @@ export default function App() {
 
         <button
           onClick={() => {
-            setActiveTab('experience-board');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            handleNavigateTab('experience-board');
           }}
           className={`flex flex-col items-center justify-center min-w-[48px] min-h-[48px] px-2 text-[10px] font-medium transition-colors ${
             activeTab === 'experience-board' ? 'text-accent-functional font-bold' : 'text-ink-secondary hover:text-ink-primary'
@@ -1582,6 +1951,8 @@ export default function App() {
           <span>Reviews</span>
         </button>
       </nav>
+      
+
 
     </div>
   );

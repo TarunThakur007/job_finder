@@ -52,7 +52,7 @@ export default function HowItWorksSection({ onExploreJobs, onUploadResume }) {
         <div className="text-center max-w-2xl mx-auto space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#141922] border border-[#253044] text-slate-300 text-xs font-mono font-semibold shadow-sm">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-            <span>VERIFICATION PIPELINE</span>
+            <span>Verification Pipeline</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             How <span className="text-teal-400">Direct Verification</span> Works

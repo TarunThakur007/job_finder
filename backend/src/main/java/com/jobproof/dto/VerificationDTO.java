@@ -1,5 +1,6 @@
 package com.jobproof.dto;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class VerificationDTO {
@@ -13,10 +14,15 @@ public class VerificationDTO {
     private Integer finalScore;
     private String status;
     private List<String> reasons;
+    private LocalDateTime lastVerified;
 
     public VerificationDTO() {}
 
     public VerificationDTO(Long jobId, Integer companyScore, Integer sourceScore, Integer urlScore, Integer freshnessScore, Integer contentScore, Integer aiScore, Integer finalScore, String status, List<String> reasons) {
+        this(jobId, companyScore, sourceScore, urlScore, freshnessScore, contentScore, aiScore, finalScore, status, reasons, null);
+    }
+
+    public VerificationDTO(Long jobId, Integer companyScore, Integer sourceScore, Integer urlScore, Integer freshnessScore, Integer contentScore, Integer aiScore, Integer finalScore, String status, List<String> reasons, LocalDateTime lastVerified) {
         this.jobId = jobId;
         this.companyScore = companyScore;
         this.sourceScore = sourceScore;
@@ -27,6 +33,7 @@ public class VerificationDTO {
         this.finalScore = finalScore;
         this.status = status;
         this.reasons = reasons;
+        this.lastVerified = lastVerified;
     }
 
     public Long getJobId() { return jobId; }
@@ -59,6 +66,9 @@ public class VerificationDTO {
     public List<String> getReasons() { return reasons; }
     public void setReasons(List<String> reasons) { this.reasons = reasons; }
 
+    public LocalDateTime getLastVerified() { return lastVerified; }
+    public void setLastVerified(LocalDateTime lastVerified) { this.lastVerified = lastVerified; }
+
     public static VerificationDTOBuilder builder() { return new VerificationDTOBuilder(); }
 
     public static class VerificationDTOBuilder {
@@ -72,6 +82,7 @@ public class VerificationDTO {
         private Integer finalScore;
         private String status;
         private List<String> reasons;
+        private LocalDateTime lastVerified;
 
         public VerificationDTOBuilder jobId(Long jobId) { this.jobId = jobId; return this; }
         public VerificationDTOBuilder companyScore(Integer companyScore) { this.companyScore = companyScore; return this; }
@@ -83,9 +94,10 @@ public class VerificationDTO {
         public VerificationDTOBuilder finalScore(Integer finalScore) { this.finalScore = finalScore; return this; }
         public VerificationDTOBuilder status(String status) { this.status = status; return this; }
         public VerificationDTOBuilder reasons(List<String> reasons) { this.reasons = reasons; return this; }
+        public VerificationDTOBuilder lastVerified(LocalDateTime lastVerified) { this.lastVerified = lastVerified; return this; }
 
         public VerificationDTO build() {
-            return new VerificationDTO(jobId, companyScore, sourceScore, urlScore, freshnessScore, contentScore, aiScore, finalScore, status, reasons);
+            return new VerificationDTO(jobId, companyScore, sourceScore, urlScore, freshnessScore, contentScore, aiScore, finalScore, status, reasons, lastVerified);
         }
     }
 }

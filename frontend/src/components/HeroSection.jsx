@@ -35,6 +35,21 @@ const ROLE_CATEGORY_MAP = [
   { id: 'operations', name: 'Finance & Operations', label: 'Finance & Ops', icon: DollarSign },
 ];
 
+const TOP_HIRING_COMPANIES = [
+  { name: 'Google', domain: 'google.com' },
+  { name: 'Microsoft', domain: 'microsoft.com' },
+  { name: 'Amazon', domain: 'amazon.com' },
+  { name: 'Stripe', domain: 'stripe.com' },
+  { name: 'Figma', domain: 'figma.com' },
+  { name: 'Netflix', domain: 'netflix.com' },
+  { name: 'Apple', domain: 'apple.com' },
+  { name: 'Meta', domain: 'meta.com' },
+  { name: 'Uber', domain: 'uber.com' },
+  { name: 'Swiggy', domain: 'swiggy.com' },
+  { name: 'Razorpay', domain: 'razorpay.com' },
+  { name: 'CRED', domain: 'cred.club' }
+];
+
 export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
   const [titleQuery, setTitleQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
@@ -87,70 +102,6 @@ export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
     }
   };
 
-  // Top 3 jobs matching the user's reference mockup
-  const mockTopJobs = [
-    {
-      id: 'top-1',
-      title: 'Java Backend Developer',
-      company: 'Microsoft',
-      companyLogo: 'GO',
-      logoBg: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
-      location: 'Bangalore',
-      type: 'Full-time',
-      salary: '₹8 - 14 LPA',
-      score: 94,
-      skills: ['Java', 'Spring Boot', 'REST API']
-    },
-    {
-      id: 'top-2',
-      title: 'Frontend Developer',
-      company: 'Google',
-      companyLogo: 'G',
-      logoBg: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-      location: 'Remote',
-      type: 'Full-time',
-      salary: '₹6 - 16 LPA',
-      score: 92,
-      skills: ['React', 'TypeScript', 'Tailwind']
-    },
-    {
-      id: 'top-3',
-      title: 'DevOps Engineer',
-      company: 'AWS',
-      companyLogo: 'AWS',
-      logoBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-      location: 'Remote',
-      type: 'Full-time',
-      salary: '₹10 - 16 LPA',
-      score: 90,
-      skills: ['Docker', 'Kubernetes', 'AWS']
-    }
-  ];
-
-  const topJobsToDisplay = useMemo(() => {
-    if (jobs && jobs.length >= 3) {
-      return jobs.slice(0, 3).map((j, idx) => ({
-        id: j.id || `db-${idx}`,
-        title: j.title || mockTopJobs[idx].title,
-        company: typeof j.company === 'object' ? j.company?.name : j.company || mockTopJobs[idx].company,
-        companyLogo: (typeof j.company === 'object' ? j.company?.name : j.company || 'JR').slice(0, 2).toUpperCase(),
-        logoBg: idx === 0 ? 'bg-teal-500/20 text-teal-300 border-teal-500/30' : idx === 1 ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-        location: j.location || mockTopJobs[idx].location,
-        type: j.jobType || j.employmentType || mockTopJobs[idx].type,
-        salary: j.salaryMin && j.salaryMax 
-          ? `₹${(j.salaryMin / 100000).toFixed(0)} - ${(j.salaryMax / 100000).toFixed(0)} LPA` 
-          : mockTopJobs[idx].salary,
-        score: j.score || j.trustScore || mockTopJobs[idx].score,
-        skills: Array.isArray(j.skills) && j.skills.length > 0 
-          ? j.skills.slice(0, 3) 
-          : typeof j.skills === 'string' 
-            ? j.skills.split(',').slice(0, 3).map(s => s.trim()) 
-            : mockTopJobs[idx].skills
-      }));
-    }
-    return mockTopJobs;
-  }, [jobs]);
-
   return (
     <section className="relative bg-[#090B0F] border-b border-[#253044]/80 pt-8 sm:pt-12 pb-14 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -165,7 +116,7 @@ export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
+          <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
             Your future <span className="text-teal-400">starts here.</span>
           </h1>
 
@@ -222,11 +173,17 @@ export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
                 onChange={(e) => setLocationQuery(e.target.value)}
                 className="w-full bg-transparent text-slate-300 text-xs font-medium focus:outline-none cursor-pointer"
               >
-                <option value="" className="bg-[#141922] text-white">Remote</option>
-                <option value="Bangalore" className="bg-[#141922] text-white">Bangalore</option>
-                <option value="New York" className="bg-[#141922] text-white">New York</option>
-                <option value="San Francisco" className="bg-[#141922] text-white">San Francisco</option>
-                <option value="London" className="bg-[#141922] text-white">London</option>
+                <option value="" className="bg-[#141922] text-white">All India Locations</option>
+                <option value="Bengaluru" className="bg-[#141922] text-white">Bengaluru (Bangalore)</option>
+                <option value="Hyderabad" className="bg-[#141922] text-white">Hyderabad</option>
+                <option value="Pune" className="bg-[#141922] text-white">Pune</option>
+                <option value="Delhi NCR" className="bg-[#141922] text-white">Delhi NCR (Gurugram / Noida)</option>
+                <option value="Mumbai" className="bg-[#141922] text-white">Mumbai</option>
+                <option value="Chennai" className="bg-[#141922] text-white">Chennai</option>
+                <option value="Kolkata" className="bg-[#141922] text-white">Kolkata</option>
+                <option value="Ahmedabad" className="bg-[#141922] text-white">Ahmedabad</option>
+                <option value="Jaipur" className="bg-[#141922] text-white">Jaipur</option>
+                <option value="Remote" className="bg-[#141922] text-white">Remote (India)</option>
               </select>
             </div>
 
@@ -254,6 +211,39 @@ export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
               <ArrowRight className="w-5 h-5 stroke-[2.5]" />
             </button>
           </form>
+
+          {/* Top Companies Section (Right after the job search option) */}
+          <div className="pt-2 max-w-3xl mx-auto space-y-3">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <Building2 className="w-3.5 h-3.5 text-teal-400" />
+              <span>Top Hiring Companies</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+              {TOP_HIRING_COMPANIES.map((company) => (
+                <button
+                  key={company.name}
+                  type="button"
+                  onClick={() => {
+                    handleTitleChange(company.name);
+                    if (onSearch) {
+                      onSearch(company.name, typeQuery, locationQuery);
+                    }
+                  }}
+                  className="group flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#141922] hover:bg-teal-500/10 border border-[#253044] hover:border-teal-400/60 text-slate-300 hover:text-white transition-all text-xs font-medium shadow-sm hover:scale-105 active:scale-95"
+                >
+                  <img
+                    src={`https://logo.clearbit.com/${company.domain}`}
+                    alt={company.name}
+                    className="w-4 h-4 rounded-full object-contain bg-white/10 p-0.5 flex-shrink-0"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  <span>{company.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
         </div>
 
@@ -285,121 +275,6 @@ export default function HeroSection({ jobs = [], onSearch, onCategorySelect }) {
               50k+
             </div>
             <div className="text-xs text-slate-400">Happy Job Seekers</div>
-          </div>
-        </div>
-
-        {/* TOP JOBS SECTION (Exact layout from user's image) */}
-        <div className="pt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Top Jobs
-            </h2>
-            <a 
-              href="#job-listings-section" 
-              className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors"
-            >
-              <span>View all</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </a>
-          </div>
-
-          {/* 3 Horizontal Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {topJobsToDisplay.map((job) => (
-              <div 
-                key={job.id}
-                onClick={() => {
-                  if (onSearch) onSearch(job.title, '', '');
-                  const el = document.getElementById('job-listings-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="bg-[#141922] border border-[#253044] hover:border-teal-500/50 rounded-2xl p-5 space-y-4 shadow-xl hover:shadow-teal-500/10 transition-colors duration-150 cursor-pointer group"
-              >
-                {/* Card Header: Icon, Title & Chevron */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-bold text-xs flex-shrink-0 ${job.logoBg}`}>
-                      {job.companyLogo}
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-white truncate group-hover:text-teal-300 transition-colors">
-                        {job.title}
-                      </h3>
-                      <p className="text-xs text-slate-400 truncate">
-                        {job.company}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition-transform duration-150 flex-shrink-0" />
-                </div>
-
-                {/* Location & Type */}
-                <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{job.location} • {job.type}</span>
-                </div>
-
-                {/* Salary & Trust Score */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs font-mono font-bold text-amber-400">
-                    {job.salary}
-                  </span>
-                  <div className="flex items-center gap-1 text-xs font-mono font-semibold text-teal-400">
-                    <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
-                    <span>{job.score}/100</span>
-                  </div>
-                </div>
-
-                {/* Tech Skill Tags */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  {(job.skills || []).map((skill, sIdx) => (
-                    <span 
-                      key={sIdx}
-                      className="px-2.5 py-1 rounded-lg bg-[#0D1117] border border-[#253044] text-[11px] font-medium text-slate-300 group-hover:border-teal-500/30 transition-colors"
-                    >
-                      {skill}
-                    </span>
-                  ))}
-                  <span className="w-6 h-6 rounded-lg bg-[#0D1117] border border-[#253044] flex items-center justify-center text-slate-400 text-xs">
-                    &gt;
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* BOTTOM KEY FEATURES & COLOR PALETTE BAR (Exact from user's image) */}
-        <div className="pt-6 border-t border-[#253044]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* Color swatches */}
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#14B8A6] shadow-md shadow-teal-500/20" title="Electric Teal" />
-              <span className="w-6 h-6 rounded-full bg-[#F8FAFC] shadow-sm" title="White / Mint" />
-              <span className="w-6 h-6 rounded-full bg-[#64748B] shadow-sm" title="Slate Secondary" />
-              <span className="w-6 h-6 rounded-full bg-[#1E293B] shadow-sm" title="Obsidian Surface" />
-            </div>
-
-            <div className="h-5 w-px bg-[#253044] hidden sm:block mx-1" />
-
-            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-              Key Features:
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 font-medium">
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-teal-400 stroke-[2.5]" />
-              Minimal, clean layout
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-teal-400 stroke-[2.5]" />
-              Large typography
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-teal-400 stroke-[2.5]" />
-              Maximum focus on content
-            </span>
           </div>
         </div>
 

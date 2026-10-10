@@ -7,16 +7,28 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.jobproof.entity.Job;
+import com.jobproof.mapper.JobMapper;
+import com.jobproof.verification.JobFreshnessAuditAgent;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/jobs")
 public class JobController {
 
     private final JobService jobService;
+    private final JobFreshnessAuditAgent auditAgent;
+    private final JobMapper jobMapper;
 
-    public JobController(JobService jobService) {
+    public JobController(JobService jobService, JobFreshnessAuditAgent auditAgent, JobMapper jobMapper) {
         this.jobService = jobService;
+        this.auditAgent = auditAgent;
+        this.jobMapper = jobMapper;
     }
 
     @GetMapping
@@ -93,5 +105,28 @@ public class JobController {
     public ResponseEntity<JobDTO> reopenJob(@PathVariable Long id) {
         JobDTO updated = jobService.reopenJob(id);
         return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * AI On-Demand Single Job Freshness Audit:
+     * Directly tests employer career endpoint for this opening, verifies whether it's still open,
+     * updates lastVerified timestamp to current time, and returns updated JobDTO.
+     */
+    @PostMapping("/{id}/audit")
+    public ResponseEntity<JobDTO> auditJobOpening(@PathVariable Long id) {
+        Job updated = auditAgent.auditSingleJob(id);
+        return ResponseEntity.ok(jobMapper.toJobDTO(updated));
+    }
+
+    /**
+     * Trigger freshness audit across all live active jobs.
+     */
+    @PostMapping("/audit/all")
+    public ResponseEntity<Map<String, Object>> auditAllJobs() {
+        int flagged = auditAgent.auditActiveJobs();
+        return ResponseEntity.ok(Map.of(
+            "message", "AI Freshness Audit completed across active jobs",
+            "flaggedCount", flagged
+        ));
     }
 }

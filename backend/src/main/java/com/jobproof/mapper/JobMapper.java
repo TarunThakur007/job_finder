@@ -25,6 +25,9 @@ public class JobMapper {
                 .industry(company.getIndustry())
                 .description(company.getDescription())
                 .verificationScore(company.getVerificationScore())
+                .linkedinUrl(company.getLinkedinUrl())
+                .officeLocations(company.getOfficeLocations())
+                .headquarters(company.getHeadquarters())
                 .build();
     }
 

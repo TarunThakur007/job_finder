@@ -73,15 +73,6 @@ export default function LoginView({
     }
   };
 
-  // Load remembered candidate email if present
-  useEffect(() => {
-    try {
-      const savedEmail = localStorage.getItem('jobproof_saved_email');
-      if (savedEmail && !email) {
-        setEmail(savedEmail);
-      }
-    } catch (e) {}
-  }, []);
 
   // Synchronize hash changes
   useEffect(() => {
@@ -177,22 +168,54 @@ export default function LoginView({
     const isAlexAdmin = cleanEmail === 'alex.vance@jobproof.io' || cleanEmail === 'admin@jobproof.io';
     const isSarahEmployee = cleanEmail === 'sarah.jenkins@google.com' || cleanEmail === 'employee@jobproof.io' || cleanEmail === 'marcus.brody@stripe.com';
 
-    // Disallow unauthorized access to staff portals
-    if (isStaffPortal) {
-      if (staffRole === 'admin') {
-        const authorizedAdmin = isAlexAdmin || (deployedMatch && deployedMatch.role === 'ROLE_ADMIN');
-        if (!authorizedAdmin) {
-          setLoading(false);
-          setError('Access Denied: Invalid administrator credentials. Only authorized platform governance officers may enter.');
-          return;
-        }
-      } else if (staffRole === 'employee') {
-        const authorizedEmployee = isSarahEmployee || (deployedMatch && deployedMatch.role === 'ROLE_EMPLOYEE');
-        if (!authorizedEmployee) {
-          setLoading(false);
-          setError('Access Denied: This account is not provisioned as a Verified Recruiter or Company Partner. Please contact the platform admin.');
-          return;
-        }
+    // Determine the active portal
+    const targetPortal = isStaffPortal ? (staffRole === 'admin' ? 'admin' : 'employee') : 'user';
+
+    // Strict Cross-Portal Mutual Exclusion Checks
+    if (targetPortal === 'user') {
+      if (isAlexAdmin || deployedMatch?.role === 'ROLE_ADMIN') {
+        setLoading(false);
+        setError('Access Denied: This portal is exclusively for Candidates / Job Seekers. Platform Administrators must sign in through the Admin Portal.');
+        return;
+      }
+      if (isSarahEmployee || deployedMatch?.role === 'ROLE_EMPLOYEE') {
+        setLoading(false);
+        setError('Access Denied: This portal is exclusively for Candidates / Job Seekers. Company Recruiters and Employers must sign in through the Employer Portal.');
+        return;
+      }
+    } else if (targetPortal === 'admin') {
+      if (cleanEmail === 'candidate@jobproof.io' || cleanEmail.includes('candidate') || (deployedMatch && deployedMatch.role === 'ROLE_USER')) {
+        setLoading(false);
+        setError('Access Denied: Only Administrator accounts can log in through the Admin Portal. Candidate accounts are not permitted.');
+        return;
+      }
+      if (isSarahEmployee || (deployedMatch && deployedMatch.role === 'ROLE_EMPLOYEE')) {
+        setLoading(false);
+        setError('Access Denied: Only Administrator accounts can log in through the Admin Portal. Recruiter and Employer accounts are not permitted.');
+        return;
+      }
+      const authorizedAdmin = isAlexAdmin || (deployedMatch && deployedMatch.role === 'ROLE_ADMIN');
+      if (!authorizedAdmin) {
+        setLoading(false);
+        setError('Access Denied: Invalid administrator credentials. Only authorized platform governance officers may enter.');
+        return;
+      }
+    } else if (targetPortal === 'employee') {
+      if (cleanEmail === 'candidate@jobproof.io' || cleanEmail.includes('candidate') || (deployedMatch && deployedMatch.role === 'ROLE_USER')) {
+        setLoading(false);
+        setError('Access Denied: Only Employee / Recruiter accounts can log in through the Employer Portal. Candidate accounts are not permitted.');
+        return;
+      }
+      if (isAlexAdmin || (deployedMatch && deployedMatch.role === 'ROLE_ADMIN')) {
+        setLoading(false);
+        setError('Access Denied: Only Employee / Recruiter accounts can log in through the Employer Portal. Administrator accounts must use the Admin Console.');
+        return;
+      }
+      const authorizedEmployee = isSarahEmployee || (deployedMatch && deployedMatch.role === 'ROLE_EMPLOYEE');
+      if (!authorizedEmployee) {
+        setLoading(false);
+        setError('Access Denied: This account is not provisioned as a Verified Recruiter or Company Partner. Please contact the platform admin.');
+        return;
       }
     }
 
@@ -213,7 +236,7 @@ export default function LoginView({
         if (staffRole === 'employee') {
           const validEmpPass = password === 'Password@123' || password === 'Employee@123';
           if (!validEmpPass) {
-            setError('Incorrect password for Recruiter. Default credential is: Password@123');
+            setError('Incorrect password for Recruiter. Default credential is: Employee@123');
             setLoading(false);
             return null;
           }
@@ -224,6 +247,12 @@ export default function LoginView({
         }
       } else {
         // Candidate Portal client authentication
+        if (cleanEmail === 'candidate@jobproof.io' && password !== 'Password@123') {
+          setError('Incorrect password for Candidate account. Default credential is: Password@123');
+          setLoading(false);
+          return null;
+        }
+
         try {
           const savedCandidates = JSON.parse(localStorage.getItem('jobproof_registered_candidates') || '[]');
           const existing = savedCandidates.find(c => c.email && c.email.toLowerCase() === cleanEmail);
@@ -259,7 +288,7 @@ export default function LoginView({
             return { user: autoCandidate, token: 'demo-user-session-token' };
           }
         } catch (e) {
-          return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail }, token: 'demo-user-session-token' };
+          return { user: { name: fullName || cleanEmail.split('@')[0], email: cleanEmail, role: 'ROLE_USER' }, token: 'demo-user-session-token' };
         }
       }
       return null;
@@ -268,33 +297,34 @@ export default function LoginView({
     const finalizeLogin = (apiResponse) => {
       setLoading(false);
 
-      let userRole = 'ROLE_USER';
-      let userName = (!isStaffPortal && isSignUp) ? fullName : (fullName || email.split('@')[0]);
+      let userRole = apiResponse?.user?.role;
+      let userName = apiResponse?.user?.name || ((!isStaffPortal && isSignUp) ? fullName : (fullName || email.split('@')[0]));
       let userTitle = 'Candidate / Job Seeker';
       let userAvatar = '👤';
       let userCompany = null;
       let userId = apiResponse?.user?.id || null;
 
-      if (deployedMatch) {
-        userRole = deployedMatch.role;
-        userName = deployedMatch.name;
-        userTitle = deployedMatch.title || (deployedMatch.role === 'ROLE_ADMIN' ? 'Platform Administrator' : 'Company Recruiter');
-        userCompany = deployedMatch.company || (deployedMatch.role === 'ROLE_ADMIN' ? 'JobProof Core' : 'Partner Company');
-        userAvatar = '👤';
-      } else if (isStaffPortal && staffRole === 'employee') {
-        userRole = 'ROLE_EMPLOYEE';
-        userName = isSarahEmployee ? (cleanEmail.includes('marcus') ? 'Marcus Brody' : 'Sarah Jenkins') : (fullName || email.split('@')[0]);
-        userTitle = 'Company Recruiter & Hiring Partner';
-        userAvatar = '👤';
-        userCompany = cleanEmail.includes('stripe') ? 'Stripe' : 'Google';
-      } else if (isStaffPortal && staffRole === 'admin') {
-        userRole = 'ROLE_ADMIN';
-        userName = isAlexAdmin ? 'Alex Vance (Admin Author)' : (fullName || 'System Administrator');
+      if (!userRole) {
+        if (deployedMatch) {
+          userRole = deployedMatch.role;
+        } else if (isStaffPortal && staffRole === 'admin') {
+          userRole = 'ROLE_ADMIN';
+        } else if (isStaffPortal && staffRole === 'employee') {
+          userRole = 'ROLE_EMPLOYEE';
+        } else {
+          userRole = 'ROLE_USER';
+        }
+      }
+
+      if (userRole === 'ROLE_ADMIN') {
+        userName = apiResponse?.user?.name || (isAlexAdmin ? 'Alex Vance (Admin Author)' : (fullName || 'System Administrator'));
         userTitle = 'Head of Platform & Trust Governance';
-        userAvatar = '👤';
         userCompany = 'JobProof Core';
+      } else if (userRole === 'ROLE_EMPLOYEE') {
+        userName = apiResponse?.user?.name || (isSarahEmployee ? (cleanEmail.includes('marcus') ? 'Marcus Brody' : 'Sarah Jenkins') : (fullName || email.split('@')[0]));
+        userTitle = 'Company Recruiter & Hiring Partner';
+        userCompany = cleanEmail.includes('stripe') ? 'Stripe' : 'Google';
       } else {
-        userRole = 'ROLE_USER';
         userName = apiResponse?.user?.name || (isSignUp ? fullName : (fullName || (cleanEmail.includes('cooper') ? 'Cooper Curtis' : cleanEmail.split('@')[0])));
         userTitle = 'Verified Candidate';
       }
@@ -329,7 +359,7 @@ export default function LoginView({
         title: userTitle,
         avatar: userAvatar,
         company: userCompany,
-        panel: isStaffPortal ? staffRole : 'user',
+        panel: userRole === 'ROLE_ADMIN' ? 'admin' : (userRole === 'ROLE_EMPLOYEE' ? 'employee' : 'user'),
         token: apiResponse?.token || null,
         loggedInAt: new Date().toLocaleTimeString()
       };
@@ -374,7 +404,8 @@ export default function LoginView({
     const authPayload = {
       name: (!isStaffPortal && isSignUp) ? fullName : undefined,
       email: cleanEmail,
-      password: password
+      password: password,
+      portal: targetPortal
     };
 
     fetch(apiEndpoint, {
@@ -400,23 +431,29 @@ export default function LoginView({
         }
       })
       .catch((err) => {
+        setLoading(false);
         if (!isStaffPortal && isSignUp && err.message && err.message.toLowerCase().includes('already exists')) {
           setIsSignUp(false);
           setError(null);
           setRedirectNotice(`An account for ${cleanEmail} is already registered in the database. Please enter your password to sign in.`);
-          setLoading(false);
           return;
         }
 
-        // Resilient fallback if backend was expected but offline or unreachable
-        const clientFallback = performClientAuth();
-        if (clientFallback) {
-          finalizeLogin(clientFallback);
-          return;
+        // Only fall back to client authentication IF the backend is truly offline/unreachable
+        // (i.e. Failed to fetch or BACKEND_OFFLINE), NEVER on 400/401/403/Access Denied/Invalid credentials!
+        const isNetworkFailure = err.message === 'Failed to fetch' || 
+                                 (typeof err.message === 'string' && err.message.includes('BACKEND_OFFLINE')) || 
+                                 (typeof err.message === 'string' && err.message.includes('NetworkError'));
+
+        if (isNetworkFailure && !shouldUseRemoteBackend) {
+          const clientFallback = performClientAuth();
+          if (clientFallback) {
+            finalizeLogin(clientFallback);
+            return;
+          }
         }
 
         setError(err.message || 'Authentication failed. Please check your credentials.');
-        setLoading(false);
       });
   };
 
@@ -608,13 +645,13 @@ export default function LoginView({
                       <Briefcase className="w-3.5 h-3.5" />
                       Recruiter Test Access
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">sarah.jenkins@google.com (Password@123)</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">employee@jobproof.io (Employee@123)</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      setEmail('sarah.jenkins@google.com');
-                      setPassword('Password@123');
+                      setEmail('employee@jobproof.io');
+                      setPassword('Employee@123');
                       setError(null);
                     }}
                     className="px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 text-xs font-medium border border-teal-500/40 transition active:scale-95"
@@ -914,29 +951,6 @@ export default function LoginView({
                 </div>
               )}
 
-              {/* Demo Helper Quick Fill for Candidate Testing */}
-              {!isSignUp && (
-                <div className="mb-4 p-3 bg-teal-500/10 border border-teal-500/30 rounded-2xl text-xs text-slate-300 flex items-center justify-between gap-3 animate-fadeIn">
-                  <div>
-                    <p className="font-semibold text-teal-300 text-xs flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Candidate Demo Access
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">candidate@jobradar.io (Candidate@123)</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail('candidate@jobradar.io');
-                      setPassword('Candidate@123');
-                      setError(null);
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 text-xs font-medium border border-teal-500/40 transition active:scale-95"
-                  >
-                    Quick Fill
-                  </button>
-                </div>
-              )}
 
               {/* Authentication Form */}
               <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -1102,45 +1116,6 @@ export default function LoginView({
                   )}
                 </button>
               </form>
-
-              {/* Subtle OR Divider */}
-              <div className="flex items-center my-5">
-                <div className="flex-1 border-t border-[#133246]" />
-                <span className="px-3 text-[11px] font-bold text-slate-500 tracking-wider">OR</span>
-                <div className="flex-1 border-t border-[#133246]" />
-              </div>
-
-              {/* Explore JobRadar Demo Box (As In Reference Image) */}
-              <div className="bg-[#050e17]/85 border border-[#133246] rounded-2xl p-4 flex items-center justify-between gap-3 shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-teal-500/15 border border-teal-500/30 text-[#00e5c9] flex items-center justify-center flex-shrink-0">
-                    <Monitor className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-white leading-tight">
-                      Explore JobRadar Demo
-                    </h3>
-                    <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 leading-snug">
-                      Browse jobs and experience the platform without creating an account.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <span className="text-[9px] font-semibold text-[#00e5c9] bg-teal-500/10 border border-teal-500/30 px-2 py-0.5 rounded-full">
-                    View-only mode
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleQuickDemoLogin}
-                    disabled={loading}
-                    className="px-3 py-1.5 rounded-xl border border-teal-500/40 text-[#00e5c9] hover:bg-teal-500/10 text-xs font-bold transition flex items-center gap-1 active:scale-95"
-                  >
-                    <span>Explore Demo</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* Subtle Discrete Staff / Admin Portal Footer Link */}

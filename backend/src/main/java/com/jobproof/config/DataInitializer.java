@@ -125,7 +125,7 @@ public class DataInitializer implements CommandLineRunner {
         int updated = jobService.recalculateAllFieldVacancies();
         log.info("[JobProof DataInitializer] Successfully updated {} jobs with real field vacancy counts.", updated);
 
-        // Seed default Admin & Candidate users if not present
+        // Seed default Admin, Employee & Candidate users if not present
         if (!userRepository.existsByEmail("admin@jobproof.io")) {
             log.info("[JobProof DataInitializer] Seeding master platform administrator admin@jobproof.io...");
             userRepository.save(User.builder()
@@ -138,18 +138,35 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
         }
 
-        if (userRepository.count() <= 1) {
-            log.info("[JobProof DataInitializer] Seeding candidate users...");
+        if (!userRepository.existsByEmail("employee@jobproof.io")) {
+            log.info("[JobProof DataInitializer] Seeding employer recruiter employee@jobproof.io...");
+            userRepository.save(User.builder()
+                    .name("Sarah Jenkins")
+                    .email("employee@jobproof.io")
+                    .password("Employee@123")
+                    .role(User.Role.ROLE_EMPLOYEE)
+                    .headline("Company Recruiter & Hiring Partner")
+                    .company("Google")
+                    .build());
+        }
+
+        if (!userRepository.existsByEmail("candidate@jobproof.io")) {
+            log.info("[JobProof DataInitializer] Seeding default candidate candidate@jobproof.io...");
+            userRepository.save(User.builder()
+                    .name("Tarun Pratap Singh")
+                    .email("candidate@jobproof.io")
+                    .password("Password@123")
+                    .role(User.Role.ROLE_USER)
+                    .headline("Java Backend Developer")
+                    .company("Candidate Community")
+                    .build());
+        }
+
+        if (userRepository.count() <= 3) {
+            log.info("[JobProof DataInitializer] Seeding additional candidate users...");
             userRepository.save(User.builder()
                     .name("Cooper Curtis")
                     .email("cooper.curtis@jobproof.io")
-                    .password("Password@123")
-                    .role(User.Role.ROLE_USER)
-                    .build());
-
-            userRepository.save(User.builder()
-                    .name("Alex Morgan")
-                    .email("alex.morgan@example.com")
                     .password("Password@123")
                     .role(User.Role.ROLE_USER)
                     .build());

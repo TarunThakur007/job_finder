@@ -91,17 +91,17 @@ export default function FeatureSpotlightSection({
                   </div>
                   <div>
                     <p className="text-xs font-bold text-white">ATS System Alignment</p>
-                    <p className="text-[11px] font-mono text-emerald-400 font-bold">Senior Role Standard</p>
+                    <p className="text-xs font-mono text-emerald-400 font-bold">Senior Role Standard</p>
                     <p className="text-xs text-slate-400 mt-0.5">Audited across 50+ enterprise algorithms</p>
                   </div>
                 </div>
 
                 {/* Matched Keywords Pill Group */}
                 <div className="space-y-1.5 pt-1">
-                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Detected Tokens:</span>
+                  <span className="text-xs font-mono uppercase tracking-wider text-slate-400">Detected Tokens:</span>
                   <div className="flex flex-wrap gap-1.5">
                     {['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Docker', 'Distributed Systems'].map((kw) => (
-                      <span key={kw} className="px-2.5 py-1 rounded-lg bg-[#0D1117] text-slate-300 border border-[#253044] text-[11px] font-mono">
+                      <span key={kw} className="px-2.5 py-1 rounded-lg bg-[#0D1117] text-slate-300 border border-[#253044] text-xs font-mono">
                         ✓ {kw}
                       </span>
                     ))}

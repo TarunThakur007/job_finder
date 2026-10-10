@@ -27,12 +27,24 @@ public class Company {
     @Column(name = "verification_score")
     private Integer verificationScore;
 
+    @Column(name = "linkedin_url")
+    private String linkedinUrl;
+
+    @Column(name = "office_locations", length = 1000)
+    private String officeLocations;
+
+    private String headquarters;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public Company() {}
 
     public Company(Long id, String name, String website, String careerPage, String industry, String description, Integer verificationScore, LocalDateTime createdAt) {
+        this(id, name, website, careerPage, industry, description, verificationScore, null, null, null, createdAt);
+    }
+
+    public Company(Long id, String name, String website, String careerPage, String industry, String description, Integer verificationScore, String linkedinUrl, String officeLocations, String headquarters, LocalDateTime createdAt) {
         this.id = id;
         this.name = name;
         this.website = website;
@@ -40,6 +52,9 @@ public class Company {
         this.industry = industry;
         this.description = description;
         this.verificationScore = verificationScore;
+        this.linkedinUrl = linkedinUrl;
+        this.officeLocations = officeLocations;
+        this.headquarters = headquarters;
         this.createdAt = createdAt;
     }
 
@@ -72,6 +87,15 @@ public class Company {
     public Integer getVerificationScore() { return verificationScore; }
     public void setVerificationScore(Integer verificationScore) { this.verificationScore = verificationScore; }
 
+    public String getLinkedinUrl() { return linkedinUrl; }
+    public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+
+    public String getOfficeLocations() { return officeLocations; }
+    public void setOfficeLocations(String officeLocations) { this.officeLocations = officeLocations; }
+
+    public String getHeadquarters() { return headquarters; }
+    public void setHeadquarters(String headquarters) { this.headquarters = headquarters; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -87,6 +111,9 @@ public class Company {
         private String industry;
         private String description;
         private Integer verificationScore;
+        private String linkedinUrl;
+        private String officeLocations;
+        private String headquarters;
         private LocalDateTime createdAt;
 
         public CompanyBuilder id(Long id) { this.id = id; return this; }
@@ -96,10 +123,13 @@ public class Company {
         public CompanyBuilder industry(String industry) { this.industry = industry; return this; }
         public CompanyBuilder description(String description) { this.description = description; return this; }
         public CompanyBuilder verificationScore(Integer verificationScore) { this.verificationScore = verificationScore; return this; }
+        public CompanyBuilder linkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; return this; }
+        public CompanyBuilder officeLocations(String officeLocations) { this.officeLocations = officeLocations; return this; }
+        public CompanyBuilder headquarters(String headquarters) { this.headquarters = headquarters; return this; }
         public CompanyBuilder createdAt(LocalDateTime createdAt) { this.createdAt = createdAt; return this; }
 
         public Company build() {
-            return new Company(id, name, website, careerPage, industry, description, verificationScore, createdAt);
+            return new Company(id, name, website, careerPage, industry, description, verificationScore, linkedinUrl, officeLocations, headquarters, createdAt);
         }
     }
 }
