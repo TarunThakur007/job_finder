@@ -829,6 +829,7 @@ export default function LoginView({
                   loading="eager"
                   decoding="async"
                   fetchPriority="high"
+                  fetchpriority="high"
                   className="w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[420px] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.85)] select-none opacity-95"
                 />
               </picture>
