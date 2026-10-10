@@ -116,6 +116,15 @@ export function applyDisplayPreferences(prefs) {
     root.setAttribute('data-typography', prefs.typography || 'sans');
     if (body) body.setAttribute('data-typography', prefs.typography || 'sans');
 
+    // On-demand lazy load for editorial serif font only when user actively selects it
+    if (prefs.typography === 'editorial' && typeof document !== 'undefined' && !document.getElementById('jobproof-editorial-font')) {
+      const fontLink = document.createElement('link');
+      fontLink.id = 'jobproof-editorial-font';
+      fontLink.rel = 'stylesheet';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&display=swap';
+      document.head.appendChild(fontLink);
+    }
+
     // Save to localStorage synchronously
     localStorage.setItem('jobproof_display_preferences', JSON.stringify({ ...prefs, theme: activeTheme }));
     localStorage.setItem('jobproof_theme', activeTheme);
